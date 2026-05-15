@@ -31,13 +31,12 @@ function requireRole(...roles) {
     };
 }
 
-// --- AUTH & REG ---
 app.post('/api/login', async (req, res) => {
     try {
         const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [req.body.email]);
         const user = rows[0];
         if (!user) return res.status(401).json({ error: 'Користувача не знайдено!' });
-        if (user.status === 'pending') return res.status(403).json({ error: 'Очікуйте підтвердження.' });
+        if (user.status === 'pending') return res.status(403).json({ error: 'Акаунт очікує підтвердження адміністратором.' });
         if (user.status === 'blocked') return res.status(403).json({ error: 'Акаунт заблоковано.' });
         const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '8h' });
         res.json({ token, role: user.role, name: user.name, id: user.id });
@@ -48,11 +47,10 @@ app.post('/api/register', async (req, res) => {
     try {
         const { name, email, password, phone } = req.body;
         await pool.query("INSERT INTO users (name, email, password, phone, role, status) VALUES ($1, $2, $3, $4, 'franchisee', 'pending')", [name, email, password || '123456', phone]);
-        res.status(201).json({ message: "Заявку відправлено." });
-    } catch (err) { res.status(500).json({ error: "Помилка реєстрації (можливо, email вже зайнятий)" }); }
+        res.status(201).json({ message: "Заявку на реєстрацію відправлено." });
+    } catch (err) { res.status(500).json({ error: "Помилка реєстрації. Можливо, email вже зайнятий." }); }
 });
 
-// --- DASHBOARD ---
 app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
     try {
         const m = (await pool.query('SELECT COUNT(*) FROM coffee_machines')).rows[0].count;
@@ -62,7 +60,6 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- MACHINES ---
 app.get('/api/machines', authenticateToken, async (req, res) => {
     try {
         let q = 'SELECT * FROM coffee_machines', p = [];
@@ -87,7 +84,6 @@ app.patch('/api/machines/:id/assign', authenticateToken, requireRole('admin'), a
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- USERS ---
 app.get('/api/users', authenticateToken, requireRole('admin'), async (req, res) => {
     try {
         const { rows } = await pool.query('SELECT id, name, email, phone, role, status, created_at FROM users ORDER BY id DESC');
