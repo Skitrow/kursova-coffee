@@ -1,19 +1,22 @@
 {
-  "name": "coffe-rgr",
+  "name": "coffee-rgr",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "CoffeeNet ERP",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "test": "node --test test.js",
+    "migrate:up": "migrate-mongo up",
+    "migrate:down": "migrate-mongo down"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.2.0"
+  },
+  "devDependencies": {
+    "migrate-mongo": "^11.0.0"
   }
 }

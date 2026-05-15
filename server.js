@@ -3,12 +3,19 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const uri = process.env.MONGO_URI;
+// Роздача фронтенду (index.html)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// MongoDB URI: беремо з .env або використовуємо локальну БД з Docker
+const uri = process.env.MONGO_URI || "mongodb://mongodb:27017/coffee_franchise_db";
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.JWT_SECRET || "super_secret_rgr_key";
 
@@ -41,7 +48,7 @@ function requireRole(...roles) {
 async function startServer() {
     try {
         await client.connect();
-        console.log("✅ Підключено до MongoDB Atlas!");
+        console.log("✅ Підключено до MongoDB!");
         const db = client.db("coffee_franchise_db");
 
         // ==========================================
@@ -55,7 +62,6 @@ async function startServer() {
                 return res.status(401).json({ error: 'Користувача з таким email не знайдено!' });
             }
 
-            // DEMO: пароль не перевіряється (в продакшені – bcrypt.compare)
             const token = jwt.sign(
                 { id: user._id, role: user.role, name: user.name },
                 SECRET_KEY,
@@ -91,7 +97,6 @@ async function startServer() {
         // ==========================================
         app.get('/api/machines', authenticateToken, async (req, res) => {
             let filter = {};
-            // Франчайзі бачить лише свої машини
             if (req.user.role === 'franchisee') {
                 filter = { franchisee_id: new ObjectId(req.user.id) };
             }
@@ -99,7 +104,6 @@ async function startServer() {
             res.json(machines);
         });
 
-        // Отримати останню телеметрію для конкретної машини
         app.get('/api/machines/:id/telemetry', authenticateToken, async (req, res) => {
             const log = await db.collection('telemetry_logs')
                 .find({ machine_id: new ObjectId(req.params.id) })
@@ -109,7 +113,6 @@ async function startServer() {
             res.json(log);
         });
 
-        // POST: Прийом телеметрії від IoT-модуля (без авторизації – машина шле дані)
         app.post('/api/telemetry/:machine_id', async (req, res) => {
             const { water_level_percent, coffee_beans_percent, cups_count, has_error, error_code } = req.body;
 
@@ -131,7 +134,6 @@ async function startServer() {
 
             await db.collection('telemetry_logs').insertOne(log);
 
-            // Якщо критичний рівень – автоматично створити завдання для техніка
             if (has_error || water_level_percent < 15 || coffee_beans_percent < 15 || cups_count < 10) {
                 const existing = await db.collection('maintenance_tasks').findOne({
                     machine_id: new ObjectId(req.params.machine_id),
@@ -242,7 +244,6 @@ async function startServer() {
             }
             const tasks = await db.collection('maintenance_tasks').find(filter).sort({ assigned_at: -1 }).toArray();
 
-            // Збагачуємо дані назвою машини
             const enriched = await Promise.all(tasks.map(async (task) => {
                 const machine = await db.collection('coffee_machines').findOne(
                     { _id: task.machine_id },
@@ -293,7 +294,7 @@ async function startServer() {
             const royaltyReport = await Promise.all(franchisees.map(async (f) => {
                 const orders = await db.collection('orders').find({ franchisee_id: f._id }).toArray();
                 const totalRevenue = orders.reduce((sum, o) => sum + (o.total_price || 0), 0);
-                const royaltyAmount = totalRevenue * 0.08; // 8% роялті
+                const royaltyAmount = totalRevenue * 0.08;
 
                 const paidPayments = await db.collection('payments').find({
                     franchisee_id: f._id,
