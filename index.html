@@ -1175,7 +1175,7 @@ function renderIngredients() {
 }
 
 function changeQty(id, delta) {
-    const ing = allIngredients.find(i => i._id === id);
+    const ing = allIngredients.find(i => i._id == id);
     const cur = cart[id]?.qty || 0;
     const newQty = Math.max(0, cur + delta);
     if (newQty === 0) { delete cart[id]; } else { cart[id] = { qty: newQty, price: ing.price_per_unit, name: ing.name, unit: ing.unit }; }
@@ -1185,7 +1185,7 @@ function changeQty(id, delta) {
 }
 
 function setQty(id, val) {
-    const ing = allIngredients.find(i => i._id === id);
+    const ing = allIngredients.find(i => i._id == id);
     const newQty = Math.max(0, parseInt(val) || 0);
     if (newQty === 0) delete cart[id];
     else cart[id] = { qty: newQty, price: ing.price_per_unit, name: ing.name, unit: ing.unit };
