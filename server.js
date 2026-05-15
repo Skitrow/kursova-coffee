@@ -80,11 +80,23 @@ app.post('/api/login', async (req, res) => {
 // ==========================================
 app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
     try {
-        const machinesCount = (await pool.query('SELECT COUNT(*) FROM coffee_machines')).rows[0].count;
-        const usersCount = (await pool.query('SELECT COUNT(*) FROM users')).rows[0].count;
-        const errorsCount = (await pool.query('SELECT COUNT(*) FROM telemetry_logs WHERE has_error = true')).rows[0].count;
-        const pendingTasks = (await pool.query("SELECT COUNT(*) FROM maintenance_tasks WHERE status != 'виконано'")).rows[0].count;
-        const ordersTotal = (await pool.query('SELECT SUM(total_price) FROM orders')).rows[0].sum || 0;
+        let machinesCount = 0, usersCount = 0, errorsCount = 0, pendingTasks = 0, ordersTotal = 0;
+
+        if (req.user.role === 'admin') {
+            machinesCount = (await pool.query('SELECT COUNT(*) FROM coffee_machines')).rows[0].count;
+            usersCount = (await pool.query('SELECT COUNT(*) FROM users')).rows[0].count;
+            errorsCount = (await pool.query('SELECT COUNT(*) FROM telemetry_logs WHERE has_error = true')).rows[0].count;
+            pendingTasks = (await pool.query("SELECT COUNT(*) FROM maintenance_tasks WHERE status != 'виконано'")).rows[0].count;
+            ordersTotal = (await pool.query('SELECT SUM(total_price) FROM orders')).rows[0].sum || 0;
+        } else if (req.user.role === 'franchisee') {
+            machinesCount = (await pool.query('SELECT COUNT(*) FROM coffee_machines WHERE franchisee_id = $1', [req.user.id])).rows[0].count;
+            errorsCount = (await pool.query('SELECT COUNT(*) FROM telemetry_logs t JOIN coffee_machines m ON t.machine_id = m.id WHERE t.has_error = true AND m.franchisee_id = $1', [req.user.id])).rows[0].count;
+            ordersTotal = (await pool.query('SELECT SUM(total_price) FROM orders WHERE franchisee_id = $1', [req.user.id])).rows[0].sum || 0;
+        } else if (req.user.role === 'technician') {
+            machinesCount = (await pool.query('SELECT COUNT(*) FROM coffee_machines')).rows[0].count;
+            errorsCount = (await pool.query('SELECT COUNT(*) FROM telemetry_logs WHERE has_error = true')).rows[0].count;
+            pendingTasks = (await pool.query("SELECT COUNT(*) FROM maintenance_tasks WHERE technician_id = $1 AND status != 'виконано'", [req.user.id])).rows[0].count;
+        }
         
         res.json({ 
             machinesCount: parseInt(machinesCount), 
@@ -197,6 +209,10 @@ app.patch('/api/machine-requests/:id/reject', authenticateToken, requireRole('ad
 // ==========================================
 app.get('/api/machines/:id/telemetry', authenticateToken, async (req, res) => {
     try {
+        if (req.user.role === 'franchisee') {
+            const check = await pool.query('SELECT id FROM coffee_machines WHERE id = $1 AND franchisee_id = $2', [req.params.id, req.user.id]);
+            if (check.rows.length === 0) return res.status(403).json({ error: "Доступ заборонено" });
+        }
         const result = await pool.query('SELECT * FROM telemetry_logs WHERE machine_id = $1 ORDER BY timestamp DESC LIMIT 10', [req.params.id]);
         res.json(result.rows.map(l => ({ 
             ...l, 
@@ -219,7 +235,17 @@ app.post('/api/telemetry/:machine_id', async (req, res) => {
 
 app.get('/api/telemetry/errors', authenticateToken, async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM telemetry_logs WHERE has_error = true ORDER BY timestamp DESC LIMIT 50');
+        let query = 'SELECT t.* FROM telemetry_logs t';
+        let params = [];
+        if (req.user.role === 'franchisee') {
+            query += ' JOIN coffee_machines m ON t.machine_id = m.id WHERE t.has_error = true AND m.franchisee_id = $1';
+            params.push(req.user.id);
+        } else {
+            query += ' WHERE t.has_error = true';
+        }
+        query += ' ORDER BY t.timestamp DESC LIMIT 50';
+        
+        const result = await pool.query(query, params);
         res.json(result.rows.map(l => ({ 
             ...l, 
             _id: l.id, 
@@ -289,7 +315,7 @@ app.get('/api/ingredients', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/maintenance-tasks', authenticateToken, async (req, res) => {
+app.get('/api/maintenance-tasks', authenticateToken, requireRole('admin', 'technician'), async (req, res) => {
     try {
         let query = 'SELECT t.*, m.model, m.serial_number, m.city, m.address FROM maintenance_tasks t LEFT JOIN coffee_machines m ON t.machine_id = m.id';
         let params = [];
