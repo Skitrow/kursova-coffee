@@ -23,11 +23,13 @@
         #login-screen {
             height: 100vh; display: flex; align-items: center; justify-content: center;
             background: linear-gradient(135deg, #1a1d23 0%, #2d3748 50%, #1a1d23 100%);
+            overflow-y: auto; padding: 20px;
         }
         .login-card {
             background: white; padding: 48px 40px; border-radius: 16px;
             width: 100%; max-width: 420px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            margin: auto;
         }
         .login-logo { font-size: 2.5rem; color: var(--accent); }
         .login-card h3 { font-weight: 700; letter-spacing: -0.5px; }
@@ -157,6 +159,8 @@
         .status-progress { background: #fef3c7; color: #92400e; }
         .status-done { background: #d1fae5; color: #065f46; }
         .status-sent { background: #ede9fe; color: #5b21b6; }
+        .status-pending { background: #fef08a; color: #854d0e; }
+        .status-rejected { background: #fecdd3; color: #be123c; }
 
         /* ===== MACHINE CARDS ===== */
         .machine-card {
@@ -207,20 +211,21 @@
         .royalty-balance { font-size: 0.85rem; }
 
         /* ===== MODAL ===== */
-        .modal-card {
+        .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.5); z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+            display: none; align-items: center; justify-content: center;
         }
-        .modal-card.open { opacity: 1; pointer-events: all; }
+        .modal-overlay.open { display: flex; }
         .modal-box {
             background: white; border-radius: 16px;
-            width: 90%; max-width: 560px; max-height: 85vh;
+            width: 90%; max-width: 500px; max-height: 85vh;
             overflow-y: auto; padding: 28px;
-            transform: scale(0.95); transition: transform 0.2s;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-        .modal-card.open .modal-box { transform: scale(1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h4 { margin: 0; font-weight: 700; }
+        .modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #718096; }
 
         /* ===== BUTTONS ===== */
         .btn-primary-custom {
@@ -233,11 +238,14 @@
         .btn-sm-action {
             padding: 5px 12px; border-radius: 6px; font-size: 0.78rem;
             font-weight: 600; border: none; cursor: pointer; transition: all 0.15s;
+            display: inline-flex; align-items: center; gap: 4px;
         }
         .btn-success-sm { background: #d1fae5; color: #065f46; }
         .btn-success-sm:hover { background: #059669; color: white; }
         .btn-warning-sm { background: #fef3c7; color: #92400e; }
         .btn-warning-sm:hover { background: #d97706; color: white; }
+        .btn-danger-sm { background: #fee2e2; color: #991b1b; }
+        .btn-danger-sm:hover { background: #dc2626; color: white; }
 
         /* ===== TOAST ===== */
         .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 99999; }
@@ -271,13 +279,13 @@
 </head>
 <body>
 
-<!-- ==================== ЕКРАН ЛОГІНУ ==================== -->
+<!-- ==================== ЕКРАН ЛОГІНУ / РЕЄСТРАЦІЇ ==================== -->
 <div id="login-screen">
-    <div class="login-card">
+    <div class="login-card" id="login-container">
         <div class="text-center mb-4">
             <div class="login-logo mb-2"><i class="fa-solid fa-mug-hot"></i></div>
             <h3 class="mb-0">CoffeeNet ERP</h3>
-            <p class="text-muted small mt-1">Система управління мережею кав'ярень</p>
+            <p class="text-muted small mt-1">Вхід у систему</p>
         </div>
         <div id="login-error" class="alert alert-danger d-none py-2 small"></div>
         <form id="login-form" onsubmit="event.preventDefault(); login();">
@@ -292,11 +300,41 @@
             <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="login-btn">
                 <i class="fa-solid fa-right-to-bracket me-2"></i>Увійти в систему
             </button>
-            <div class="mt-3 p-2 bg-light rounded small text-muted">
-                <strong>Demo:</strong><br>
-                👑 admin@coffee-net.ua (Адмін)<br>
-                🏪 irina.franchise@gmail.com (Франчайзі)<br>
-                🔧 vasyl.tech@coffee-net.ua (Технік)
+            <div class="mt-3 text-center small">
+                Немає акаунту? <a href="#" onclick="toggleAuthMode('register')">Стати франчайзі</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="login-card d-none" id="register-container">
+        <div class="text-center mb-4">
+            <div class="login-logo mb-2"><i class="fa-solid fa-user-plus"></i></div>
+            <h3 class="mb-0">Реєстрація Франчайзі</h3>
+            <p class="text-muted small mt-1">Створіть запит на партнерство</p>
+        </div>
+        <div id="register-error" class="alert alert-danger d-none py-2 small"></div>
+        <form id="register-form" onsubmit="event.preventDefault(); register();">
+            <div class="mb-3">
+                <label class="form-label fw-semibold small">ПІБ або Назва Компанії</label>
+                <input type="text" id="reg-name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold small">Email адреса</label>
+                <input type="email" id="reg-email" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold small">Номер телефону</label>
+                <input type="tel" id="reg-phone" class="form-control" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-semibold small">Пароль</label>
+                <input type="password" id="reg-password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success w-100 py-2 fw-semibold" id="register-btn">
+                <i class="fa-solid fa-paper-plane me-2"></i>Відправити заявку
+            </button>
+            <div class="mt-3 text-center small">
+                Вже є акаунт? <a href="#" onclick="toggleAuthMode('login')">Увійти</a>
             </div>
         </form>
     </div>
@@ -410,12 +448,38 @@
 
         <!-- КАВОМАШИНИ -->
         <div id="machines" class="view-section">
-            <div class="page-header">
-                <h2><i class="fa-solid fa-server me-2 text-primary"></i>Кавомашини</h2>
-                <p>Поточний стан та телеметрія всіх апаратів мережі</p>
+            <div class="page-header d-flex justify-content-between align-items-start">
+                <div>
+                    <h2><i class="fa-solid fa-server me-2 text-primary"></i>Кавомашини</h2>
+                    <p>Поточний стан та телеметрія всіх апаратів мережі</p>
+                </div>
+                <div>
+                    <button class="btn-primary-custom d-none" id="btn-add-machine" onclick="openMachineModal()">
+                        <i class="fa-solid fa-plus"></i> Додати апарат
+                    </button>
+                    <button class="btn-primary-custom d-none" id="btn-order-machine" onclick="openMachineModal()">
+                        <i class="fa-solid fa-shopping-cart"></i> Замовити апарат
+                    </button>
+                </div>
             </div>
             <div class="row g-3" id="machines-grid">
                 <div class="col-12 text-center py-5"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ЗАЯВКИ НА АПАРАТИ (АДМІН) -->
+        <div id="machine-requests" class="view-section">
+            <div class="page-header">
+                <h2><i class="fa-solid fa-file-invoice me-2 text-primary"></i>Заявки на апарати</h2>
+                <p>Запити від франчайзі на нові кавомашини</p>
+            </div>
+            <div class="content-card">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead><tr><th>Франчайзі</th><th>Модель</th><th>Місто</th><th>Адреса</th><th>Статус</th><th>Дії</th></tr></thead>
+                        <tbody id="machine-requests-table"><tr><td colspan="6" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -514,7 +578,7 @@
             <div class="content-card">
                 <div class="table-responsive">
                     <table class="table table-hover">
-                        <thead><tr><th>Ім'я</th><th>Роль</th><th>Email</th><th>Телефон</th><th>Дата реєстрації</th></tr></thead>
+                        <thead><tr><th>Ім'я</th><th>Роль</th><th>Контакти</th><th>Статус</th><th>Дії</th></tr></thead>
                         <tbody id="users-table"><tr><td colspan="5" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
                     </table>
                 </div>
@@ -546,6 +610,46 @@
     </div><!-- /main-content -->
 </div><!-- /app-screen -->
 
+<!-- MODAL: ADD/ORDER MACHINE -->
+<div class="modal-overlay" id="machine-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h4 id="machine-modal-title">Додати апарат</h4>
+            <button class="modal-close" onclick="closeMachineModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="machine-form" onsubmit="event.preventDefault(); submitMachine();">
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Модель апарату</label>
+                <select class="form-select" id="machine-model" required>
+                    <option value="CoffeeNet Pro X1">CoffeeNet Pro X1</option>
+                    <option value="CoffeeNet Basic Lite">CoffeeNet Basic Lite</option>
+                    <option value="CoffeeNet Max Barista">CoffeeNet Max Barista</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Місто</label>
+                <input type="text" class="form-control" id="machine-city" required placeholder="Київ">
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Адреса</label>
+                <input type="text" class="form-control" id="machine-address" required placeholder="вул. Хрещатик, 1">
+            </div>
+            <div class="mb-4">
+                <label class="form-label small fw-bold">Тип закладу</label>
+                <select class="form-select" id="machine-place" required>
+                    <option value="ТЦ">ТЦ (Торговий центр)</option>
+                    <option value="БЦ">БЦ (Бізнес центр)</option>
+                    <option value="Вулична локація">Вулична локація</option>
+                    <option value="АЗС">АЗС</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 fw-semibold">
+                <i class="fa-solid fa-check me-2"></i> Підтвердити
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast-container" id="toast-container"></div>
 
@@ -557,8 +661,18 @@ let allIngredients = [];
 let ordersChartInstance = null;
 
 // ==========================================
-// АВТОРИЗАЦІЯ
+// АВТОРИЗАЦІЯ / РЕЄСТРАЦІЯ
 // ==========================================
+function toggleAuthMode(mode) {
+    if (mode === 'register') {
+        document.getElementById('login-container').classList.add('d-none');
+        document.getElementById('register-container').classList.remove('d-none');
+    } else {
+        document.getElementById('register-container').classList.add('d-none');
+        document.getElementById('login-container').classList.remove('d-none');
+    }
+}
+
 async function login() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
@@ -594,6 +708,43 @@ async function login() {
 
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-right-to-bracket me-2"></i>Увійти в систему';
+}
+
+async function register() {
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    const phone = document.getElementById('reg-phone').value;
+    const password = document.getElementById('reg-password').value;
+    const errorDiv = document.getElementById('register-error');
+    const btn = document.getElementById('register-btn');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner me-2"></span>Надсилання...';
+
+    try {
+        const res = await fetch(`${API_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, phone, password })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            errorDiv.classList.add('d-none');
+            alert("Ваша заявка успішно відправлена! Очікуйте підтвердження адміністратором.");
+            toggleAuthMode('login');
+            document.getElementById('register-form').reset();
+        } else {
+            errorDiv.innerText = data.error;
+            errorDiv.classList.remove('d-none');
+        }
+    } catch {
+        errorDiv.innerText = "Помилка зв'язку з сервером.";
+        errorDiv.classList.remove('d-none');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Відправити заявку';
 }
 
 function logout() {
@@ -638,6 +789,7 @@ function buildNav(role) {
             { id: 'dashboard', icon: 'fa-chart-pie', label: 'Дашборд' },
             { section: 'Обладнання' },
             { id: 'machines', icon: 'fa-server', label: 'Кавомашини' },
+            { id: 'machine-requests', icon: 'fa-file-invoice', label: 'Заявки на апарати' },
             { id: 'telemetry', icon: 'fa-signal', label: 'Телеметрія' },
             { id: 'maintenance', icon: 'fa-wrench', label: 'Завдання техніків' },
             { section: 'Бізнес' },
@@ -687,6 +839,7 @@ function switchView(viewId, element) {
     const loaders = {
         dashboard: loadDashboard,
         machines: loadMachines,
+        'machine-requests': loadMachineRequests,
         orders: loadOrders,
         ingredients: loadIngredients,
         maintenance: loadMaintenance,
@@ -710,7 +863,12 @@ async function fetchWithAuth(url, options = {}) {
             ...(options.headers || {})
         }
     });
-    if (res.status === 401 || res.status === 403) { logout(); throw new Error("Unauthorized"); }
+    if (res.status === 401 || res.status === 403) {
+        const data = await res.json();
+        alert(data.error || "Сесія закінчилась або доступ заборонено.");
+        logout(); 
+        throw new Error("Unauthorized"); 
+    }
     return res.json();
 }
 
@@ -775,10 +933,25 @@ async function renderOrdersChart() {
 }
 
 // ==========================================
-// КАВОМАШИНИ
+// КАВОМАШИНИ ТА ЗАЯВКИ НА МАШИНИ
 // ==========================================
 async function loadMachines() {
     const grid = document.getElementById('machines-grid');
+    const role = localStorage.getItem('crm_role');
+    
+    const btnAdd = document.getElementById('btn-add-machine');
+    const btnOrder = document.getElementById('btn-order-machine');
+    
+    if (role === 'admin') { 
+        btnAdd.classList.remove('d-none'); 
+        btnOrder.classList.add('d-none'); 
+    } else if (role === 'franchisee') {
+        btnAdd.classList.add('d-none'); 
+        btnOrder.classList.remove('d-none'); 
+    } else {
+        btnAdd.classList.add('d-none'); btnOrder.classList.add('d-none');
+    }
+
     try {
         const machines = await fetchWithAuth(`${API_URL}/machines`);
         if (!machines.length) {
@@ -816,7 +989,6 @@ async function loadMachines() {
             </div>`;
         }).join('');
 
-        // Завантажуємо телеметрію для кожної машини
         machines.forEach(async m => {
             try {
                 const logs = await fetchWithAuth(`${API_URL}/machines/${m._id}/telemetry`);
@@ -843,12 +1015,93 @@ function setMachineSensor(id, type, value, isCups = false) {
     if (lbl) { lbl.innerText = label; lbl.style.color = color; }
 }
 
+function openMachineModal() {
+    const role = localStorage.getItem('crm_role');
+    document.getElementById('machine-modal-title').innerText = role === 'admin' ? 'Додати апарат' : 'Замовити апарат';
+    document.getElementById('machine-form').reset();
+    document.getElementById('machine-modal').classList.add('open');
+}
+
+function closeMachineModal() {
+    document.getElementById('machine-modal').classList.remove('open');
+}
+
+async function submitMachine() {
+    const role = localStorage.getItem('crm_role');
+    const payload = {
+        model: document.getElementById('machine-model').value,
+        city: document.getElementById('machine-city').value,
+        address: document.getElementById('machine-address').value,
+        place_type: document.getElementById('machine-place').value
+    };
+
+    try {
+        if (role === 'admin') {
+            const serial_number = 'SN-' + Math.floor(Math.random() * 1000000);
+            await fetchWithAuth(`${API_URL}/machines`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    model: payload.model,
+                    serial_number,
+                    location: { city: payload.city, address: payload.address, place_type: payload.place_type }
+                })
+            });
+            toast('Апарат успішно додано', 'success');
+            loadMachines();
+        } else {
+            await fetchWithAuth(`${API_URL}/machine-requests`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            toast('Заявку на апарат відправлено', 'success');
+        }
+        closeMachineModal();
+    } catch { toast('Сталася помилка', 'error'); }
+}
+
+async function loadMachineRequests() {
+    const tbody = document.getElementById('machine-requests-table');
+    try {
+        const requests = await fetchWithAuth(`${API_URL}/machine-requests`);
+        if (!requests.length) {
+            tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><p>Заявок немає</p></div></td></tr>';
+            return;
+        }
+        const statusMap = { 'pending': 'Очікує', 'approved': 'Схвалено', 'rejected': 'Відхилено' };
+        const statusCls = { 'pending': 'status-pending', 'approved': 'status-done', 'rejected': 'status-rejected' };
+
+        tbody.innerHTML = requests.map(r => `
+            <tr>
+                <td class="fw-semibold">${r.franchisee_name || 'Невідомо'}</td>
+                <td>${r.model}</td>
+                <td>${r.city}</td>
+                <td>${r.address}</td>
+                <td><span class="status-badge ${statusCls[r.status]}">${statusMap[r.status] || r.status}</span></td>
+                <td>
+                    ${r.status === 'pending' ? `
+                        <button class="btn-sm-action btn-success-sm" onclick="processMachineRequest('${r._id}', 'approve')"><i class="fa-solid fa-check"></i></button>
+                        <button class="btn-sm-action btn-danger-sm" onclick="processMachineRequest('${r._id}', 'reject')"><i class="fa-solid fa-xmark"></i></button>
+                    ` : '–'}
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) { console.error(err); }
+}
+
+async function processMachineRequest(id, action) {
+    if (!confirm(`Ви впевнені, що хочете ${action === 'approve' ? 'схвалити' : 'відхилити'} заявку?`)) return;
+    try {
+        await fetchWithAuth(`${API_URL}/machine-requests/${id}/${action}`, { method: 'PATCH' });
+        toast(`Заявку ${action === 'approve' ? 'схвалено' : 'відхилено'}`, 'success');
+        loadMachineRequests();
+    } catch { toast('Помилка обробки заявки', 'error'); }
+}
+
 // ==========================================
-// ЗАМОВЛЕННЯ
+// ЗАМОВЛЕННЯ ТА ІНГРЕДІЄНТИ
 // ==========================================
 async function loadOrders() {
     const role = localStorage.getItem('crm_role');
-    // Тільки адмін може міняти статус
     document.getElementById('btn-new-order').style.display = (role === 'franchisee') ? 'inline-flex' : 'none';
 
     try {
@@ -858,12 +1111,7 @@ async function loadOrders() {
             tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-cart-shopping"></i><p>Замовлень ще немає</p></div></td></tr>';
             return;
         }
-        const statusMap = {
-            'прийнято_в_обробку': 'status-new',
-            'відправлено': 'status-sent',
-            'доставлено': 'status-done',
-            'скасовано': 'status-error'
-        };
+        const statusMap = { 'прийнято_в_обробку': 'status-new', 'відправлено': 'status-sent', 'доставлено': 'status-done', 'скасовано': 'status-error' };
         tbody.innerHTML = orders.map(o => `
             <tr>
                 <td><code class="text-muted">#${o._id?.toString().slice(-6)}</code></td>
@@ -887,16 +1135,11 @@ async function loadOrders() {
 
 async function updateOrderStatus(orderId, status) {
     try {
-        await fetchWithAuth(`${API_URL}/orders/${orderId}/status`, {
-            method: 'PATCH', body: JSON.stringify({ status })
-        });
+        await fetchWithAuth(`${API_URL}/orders/${orderId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
         toast('Статус замовлення оновлено', 'success');
     } catch { toast('Помилка оновлення', 'error'); }
 }
 
-// ==========================================
-// ІНГРЕДІЄНТИ (КАТАЛОГ + КОШИК)
-// ==========================================
 async function loadIngredients() {
     try {
         allIngredients = await fetchWithAuth(`${API_URL}/ingredients`);
@@ -915,8 +1158,7 @@ function renderIngredients() {
             </div>
             <div class="qty-control">
                 <button class="qty-btn" onclick="changeQty('${ing._id}', -1)">−</button>
-                <input class="qty-input" type="number" id="qty-${ing._id}" value="${cart[ing._id]?.qty || 0}" min="0"
-                    onchange="setQty('${ing._id}', this.value)">
+                <input class="qty-input" type="number" id="qty-${ing._id}" value="${cart[ing._id]?.qty || 0}" min="0" onchange="setQty('${ing._id}', this.value)">
                 <button class="qty-btn" onclick="changeQty('${ing._id}', 1)">+</button>
             </div>
         </div>
@@ -927,9 +1169,7 @@ function changeQty(id, delta) {
     const ing = allIngredients.find(i => i._id === id);
     const cur = cart[id]?.qty || 0;
     const newQty = Math.max(0, cur + delta);
-    if (newQty === 0) { delete cart[id]; } else {
-        cart[id] = { qty: newQty, price: ing.price_per_unit, name: ing.name, unit: ing.unit };
-    }
+    if (newQty === 0) { delete cart[id]; } else { cart[id] = { qty: newQty, price: ing.price_per_unit, name: ing.name, unit: ing.unit }; }
     const inp = document.getElementById(`qty-${id}`);
     if (inp) inp.value = newQty;
     renderCart();
@@ -947,12 +1187,7 @@ function renderCart() {
     const items = Object.entries(cart);
     const cartDiv = document.getElementById('cart-items');
     const totalEl = document.getElementById('cart-total');
-
-    if (!items.length) {
-        cartDiv.innerHTML = '<p class="text-muted small text-center py-3">Кошик порожній</p>';
-        totalEl.innerText = '0 ₴';
-        return;
-    }
+    if (!items.length) { cartDiv.innerHTML = '<p class="text-muted small text-center py-3">Кошик порожній</p>'; totalEl.innerText = '0 ₴'; return; }
     let total = 0;
     cartDiv.innerHTML = items.map(([id, item]) => {
         const subtotal = item.qty * item.price;
@@ -968,22 +1203,12 @@ function renderCart() {
 async function submitOrder() {
     const items = Object.entries(cart);
     if (!items.length) { toast('Додайте товари до кошика', 'error'); return; }
-
     const total = items.reduce((s, [id, i]) => s + i.qty * i.price, 0);
-    const orderItems = items.map(([id, item]) => ({
-        ingredient_id: id,
-        quantity: item.qty,
-        price: item.price
-    }));
+    const orderItems = items.map(([id, item]) => ({ ingredient_id: id, quantity: item.qty, price: item.price }));
 
     try {
-        await fetchWithAuth(`${API_URL}/orders`, {
-            method: 'POST',
-            body: JSON.stringify({ items: orderItems, total_price: total })
-        });
-        cart = {};
-        renderCart();
-        renderIngredients();
+        await fetchWithAuth(`${API_URL}/orders`, { method: 'POST', body: JSON.stringify({ items: orderItems, total_price: total }) });
+        cart = {}; renderCart(); renderIngredients();
         toast('Замовлення успішно оформлено!', 'success');
         setTimeout(() => switchView('orders', document.getElementById('nav-orders')), 1500);
     } catch { toast('Помилка оформлення замовлення', 'error'); }
@@ -1008,7 +1233,6 @@ function filterTasks(status) {
 function renderTasks(tasks) {
     const grid = document.getElementById('tasks-grid');
     const role = localStorage.getItem('crm_role');
-
     if (!tasks.length) {
         grid.innerHTML = '<div class="col-12"><div class="empty-state"><i class="fa-solid fa-check-circle" style="color:#10b981;opacity:1;font-size:2.5rem"></i><p class="mt-2">Всі завдання виконані!</p></div></div>';
         return;
@@ -1021,8 +1245,7 @@ function renderTasks(tasks) {
             <div class="task-card ${statusCls[task.status] || ''}">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <span class="status-badge ${statusBadge[task.status] || ''}">
-                        <i class="fa-solid ${task.status === 'виконано' ? 'fa-check' : task.status === 'нове' ? 'fa-circle-dot' : 'fa-spinner'}"></i>
-                        ${task.status}
+                        <i class="fa-solid ${task.status === 'виконано' ? 'fa-check' : task.status === 'нове' ? 'fa-circle-dot' : 'fa-spinner'}"></i> ${task.status}
                     </span>
                     <span class="text-muted small">${formatDate(task.assigned_at)}</span>
                 </div>
@@ -1041,9 +1264,7 @@ function renderTasks(tasks) {
 
 async function updateTask(taskId, status) {
     try {
-        await fetchWithAuth(`${API_URL}/maintenance-tasks/${taskId}`, {
-            method: 'PATCH', body: JSON.stringify({ status })
-        });
+        await fetchWithAuth(`${API_URL}/maintenance-tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify({ status }) });
         toast(status === 'виконано' ? '✅ Завдання виконано!' : '▶ Завдання взято в роботу', 'success');
         loadMaintenance();
     } catch { toast('Помилка оновлення', 'error'); }
@@ -1106,16 +1327,53 @@ async function loadUsers() {
         const users = await fetchWithAuth(`${API_URL}/users`);
         const roleMap = { admin: '👑 Адмін', franchisee: '🏪 Франчайзі', technician: '🔧 Технік' };
         const tbody = document.getElementById('users-table');
-        tbody.innerHTML = users.map(u => `
+        tbody.innerHTML = users.map(u => {
+            const st = u.status || 'approved';
+            const statusCls = st === 'pending' ? 'status-pending' : st === 'rejected' ? 'status-rejected' : 'status-done';
+            const statusName = st === 'pending' ? 'Очікує' : st === 'rejected' ? 'Відхилено' : 'Активний';
+            
+            return `
             <tr>
                 <td class="fw-semibold">${u.name}</td>
                 <td><span class="status-badge ${u.role === 'admin' ? 'status-sent' : u.role === 'franchisee' ? 'status-new' : 'status-done'}">${roleMap[u.role] || u.role}</span></td>
-                <td>${u.email}</td>
-                <td>${u.phone || '–'}</td>
-                <td class="text-muted small">${u.created_at ? formatDate(u.created_at) : '–'}</td>
+                <td>
+                    <div class="small">${u.email}</div>
+                    <div class="small text-muted">${u.phone || '–'}</div>
+                </td>
+                <td><span class="status-badge ${statusCls}">${statusName}</span></td>
+                <td>
+                    ${u.role !== 'admin' ? `
+                        <select class="form-select form-select-sm mb-1" style="font-size:0.75rem; width:120px; display:inline-block;"
+                            onchange="updateUserStatus('${u._id}', this.value)">
+                            <option value="approved" ${st === 'approved' ? 'selected' : ''}>Схвалити</option>
+                            <option value="pending" ${st === 'pending' ? 'selected' : ''}>Очікування</option>
+                            <option value="rejected" ${st === 'rejected' ? 'selected' : ''}>Відхилити</option>
+                        </select>
+                        <button class="btn-sm-action btn-danger-sm" onclick="deleteUser('${u._id}')" title="Видалити">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    ` : '–'}
+                </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
     } catch (err) { console.error(err); }
+}
+
+async function updateUserStatus(userId, status) {
+    try {
+        await fetchWithAuth(`${API_URL}/users/${userId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+        toast('Статус користувача оновлено', 'success');
+    } catch { toast('Помилка оновлення', 'error'); }
+}
+
+async function deleteUser(userId) {
+    if (!confirm('Ви дійсно хочете видалити цього користувача?')) return;
+    try {
+        await fetchWithAuth(`${API_URL}/users/${userId}`, { method: 'DELETE' });
+        toast('Користувача видалено', 'success');
+        loadUsers();
+    } catch { toast('Помилка видалення', 'error'); }
 }
 
 // ==========================================
@@ -1142,13 +1400,11 @@ async function loadTelemetry() {
     } catch (err) { console.error(err); }
 }
 
-// Симуляція IoT-сигналу (для демо / тестування)
 async function simulateTelemetry() {
     try {
         const machines = await fetchWithAuth(`${API_URL}/machines`);
         if (!machines.length) { toast('Немає апаратів для симуляції', 'error'); return; }
         const machine = machines[Math.floor(Math.random() * machines.length)];
-
         const payload = {
             water_level_percent: Math.floor(Math.random() * 25),
             coffee_beans_percent: Math.floor(Math.random() * 20),
@@ -1156,13 +1412,7 @@ async function simulateTelemetry() {
             has_error: true,
             error_code: ['ERR_LOW_WATER', 'ERR_LOW_CUPS', 'ERR_LOW_COFFEE'][Math.floor(Math.random() * 3)]
         };
-
-        await fetch(`${API_URL}/telemetry/${machine._id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
+        await fetch(`${API_URL}/telemetry/${machine._id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         toast(`IoT сигнал від ${machine.model} відправлено!`, 'success');
         loadTelemetry();
     } catch { toast('Помилка симуляції', 'error'); }
