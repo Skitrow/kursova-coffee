@@ -393,7 +393,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-6 col-md-4 col-xl-2-4">
+                <div class="col-6 col-md-4 col-xl-2-4" id="card-users" style="display:none">
                     <div class="stat-card">
                         <div class="stat-icon green"><i class="fa-solid fa-users"></i></div>
                         <div>
@@ -402,7 +402,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-6 col-md-4 col-xl-2-4">
+                <div class="col-6 col-md-4 col-xl-2-4" id="card-tasks" style="display:none">
                     <div class="stat-card">
                         <div class="stat-icon yellow"><i class="fa-solid fa-wrench"></i></div>
                         <div>
@@ -411,7 +411,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-6 col-md-4 col-xl-2-4">
+                <div class="col-6 col-md-4 col-xl-2-4" id="card-revenue" style="display:none">
                     <div class="stat-card">
                         <div class="stat-icon purple"><i class="fa-solid fa-coins"></i></div>
                         <div>
@@ -437,7 +437,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-5" id="card-orders-chart" style="display:none">
                     <div class="content-card p-3">
                         <h5 class="fw-700 mb-3">Розподіл замовлень</h5>
                         <canvas id="ordersChart" height="200"></canvas>
@@ -778,6 +778,12 @@ function setupUserUI() {
     roleEl.innerText = label;
     roleEl.className = `role-badge ${cls}`;
 
+    // Manage Dashboard Stat Cards visibility based on role
+    document.getElementById('card-users').style.display = role === 'admin' ? 'block' : 'none';
+    document.getElementById('card-tasks').style.display = (role === 'admin' || role === 'technician') ? 'block' : 'none';
+    document.getElementById('card-revenue').style.display = (role === 'admin' || role === 'franchisee') ? 'block' : 'none';
+    document.getElementById('card-orders-chart').style.display = (role === 'admin' || role === 'franchisee') ? 'block' : 'none';
+
     buildNav(role);
 }
 
@@ -903,7 +909,10 @@ async function loadDashboard() {
             `).join('');
         }
 
-        renderOrdersChart();
+        const role = localStorage.getItem('crm_role');
+        if (role === 'admin' || role === 'franchisee') {
+             renderOrdersChart();
+        }
     } catch (err) { console.error(err); }
 }
 
