@@ -41,48 +41,16 @@ function requireRole(...roles) {
 }
 
 // ==========================================
-// АВТОРИЗАЦІЯ ТА РЕЄСТРАЦІЯ
+// АВТОРИЗАЦІЯ
 // ==========================================
-app.post('/api/register', async (req, res) => {
-    try {
-        const { name, email, phone, role } = req.body;
-        const status = role === 'franchisee' ? 'pending' : 'approved';
-        const result = await pool.query(
-            'INSERT INTO users (name, email, phone, role, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-            [name, email, phone || '', role || 'franchisee', status]
-        );
-        res.status(201).json({ id: result.rows[0].id, message: 'Реєстрація успішна.' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.post('/api/login', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [req.body.email]);
         const user = result.rows[0];
         if (!user) return res.status(401).json({ error: 'Користувача не знайдено!' });
         
-        if (user.status === 'pending') return res.status(403).json({ error: 'Ваш акаунт на модерації. Дочекайтеся схвалення.' });
-        if (user.status === 'rejected') return res.status(403).json({ error: 'Ваш акаунт відхилено адміністратором.' });
-
-        const token = jwt.sign({ id: user.id, role: user.role, name: user.name, status: user.status }, SECRET_KEY, { expiresIn: '8h' });
+        const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '8h' });
         res.json({ token, role: user.role, name: user.name, id: user.id });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ==========================================
-// КОРИСТУВАЧІ
-// ==========================================
-app.get('/api/users', authenticateToken, requireRole('admin'), async (req, res) => {
-    try {
-        const result = await pool.query('SELECT id, name, email, phone, role, status, created_at FROM users');
-        res.json(result.rows.map(u => ({ ...u, _id: u.id })));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.patch('/api/users/:id/status', authenticateToken, requireRole('admin'), async (req, res) => {
-    try {
-        await pool.query('UPDATE users SET status = $1 WHERE id = $2', [req.body.status, req.params.id]);
-        res.json({ success: true, status: req.body.status });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -108,7 +76,7 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
-// КАВОМАШИНИ ТА ЗАМОВЛЕННЯ АПАРАТІВ
+// КАВОМАШИНИ
 // ==========================================
 app.get('/api/machines', authenticateToken, async (req, res) => {
     try {
@@ -119,6 +87,7 @@ app.get('/api/machines', authenticateToken, async (req, res) => {
             params.push(req.user.id); 
         }
         const result = await pool.query(query, params);
+        // Мапимо id у _id для сумісності з фронтендом
         res.json(result.rows.map(m => ({ 
             ...m, 
             _id: m.id, 
@@ -132,7 +101,7 @@ app.post('/api/machines', authenticateToken, requireRole('admin'), async (req, r
         const { model, serial_number, location, franchisee_id } = req.body;
         const result = await pool.query(
             'INSERT INTO coffee_machines (model, serial_number, city, address, place_type, franchisee_id, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-            [model, serial_number, location?.city, location?.address, location?.place_type, franchisee_id, 'active']
+            [model, serial_number, location.city, location.address, location.place_type, franchisee_id || req.user.id, 'active']
         );
         res.status(201).json({ _id: result.rows[0].id });
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -145,41 +114,8 @@ app.patch('/api/machines/:id/status', authenticateToken, requireRole('admin', 't
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Заявки на кавомашини
-app.post('/api/machine-requests', authenticateToken, requireRole('franchisee'), async (req, res) => {
-    try {
-        const { model_requested, comment } = req.body;
-        const result = await pool.query(
-            'INSERT INTO machine_requests (franchisee_id, model_requested, comment) VALUES ($1, $2, $3) RETURNING id',
-            [req.user.id, model_requested, comment]
-        );
-        res.status(201).json({ id: result.rows[0].id, message: 'Заявку на апарат подано.' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/machine-requests', authenticateToken, requireRole('admin', 'franchisee'), async (req, res) => {
-    try {
-        let query = 'SELECT mr.*, u.name as franchisee_name FROM machine_requests mr JOIN users u ON mr.franchisee_id = u.id';
-        let params = [];
-        if (req.user.role === 'franchisee') {
-            query += ' WHERE mr.franchisee_id = $1';
-            params.push(req.user.id);
-        }
-        query += ' ORDER BY mr.created_at DESC';
-        const result = await pool.query(query, params);
-        res.json(result.rows.map(r => ({ ...r, _id: r.id })));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.patch('/api/machine-requests/:id/status', authenticateToken, requireRole('admin'), async (req, res) => {
-    try {
-        await pool.query('UPDATE machine_requests SET status = $1 WHERE id = $2', [req.body.status, req.params.id]);
-        res.json({ success: true, status: req.body.status });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 // ==========================================
-// ТЕЛЕМЕТРІЯ, ЗАМОВЛЕННЯ ТА ІНШЕ
+// ТЕЛЕМЕТРІЯ
 // ==========================================
 app.get('/api/machines/:id/telemetry', authenticateToken, async (req, res) => {
     try {
@@ -214,6 +150,9 @@ app.get('/api/telemetry/errors', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==========================================
+// ЗАМОВЛЕННЯ
+// ==========================================
 app.get('/api/orders', authenticateToken, async (req, res) => {
     try {
         let query = 'SELECT * FROM orders';
@@ -262,6 +201,9 @@ app.patch('/api/orders/:id/status', authenticateToken, requireRole('admin'), asy
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==========================================
+// ІНГРЕДІЄНТИ ТА ІНШЕ
+// ==========================================
 app.get('/api/ingredients', authenticateToken, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM ingredients');
@@ -283,6 +225,13 @@ app.get('/api/maintenance-tasks', authenticateToken, async (req, res) => {
             _id: r.id, 
             machine: { model: r.model, serial_number: r.serial_number, location: { city: r.city, address: r.address } } 
         })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/users', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, name, email, phone, role, created_at FROM users');
+        res.json(result.rows.map(u => ({ ...u, _id: u.id })));
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
