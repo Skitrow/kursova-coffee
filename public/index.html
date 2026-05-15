@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoffeeNet CRM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; }
+        #auth-screen { height: 100vh; display: flex; align-items: center; justify-content: center; background: #343a40; }
+        .login-card { background: white; padding: 40px; border-radius: 10px; width: 100%; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        #app-screen { display: none; }
+        .sidebar { height: 100vh; background-color: #343a40; color: white; position: fixed; width: 250px; z-index: 1000; }
+        .sidebar a { color: #c2c7d0; text-decoration: none; padding: 15px; display: block; border-bottom: 1px solid #4f5962; cursor: pointer; }
+        .sidebar a:hover, .sidebar a.active { background-color: #007bff; color: white; }
+        .main-content { margin-left: 250px; padding: 20px; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 99999; }
+        .toast-msg { background: #1a202c; color: white; padding: 14px 20px; border-radius: 10px; margin-top: 10px; min-width: 260px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body>
+
+<div id="auth-screen">
+    <div class="login-card" id="login-form-container">
+        <h3 class="text-center mb-4">CoffeeNet ERP</h3>
+        <div id="login-error" class="alert alert-danger d-none py-2 small"></div>
+        <form onsubmit="event.preventDefault(); login();">
+            <div class="mb-3"><label>Email</label><input type="email" id="login-email" class="form-control" value="admin@coffee-net.ua" required></div>
+            <div class="mb-4"><label>Пароль</label><input type="password" id="login-password" class="form-control" value="123456" required></div>
+            <button type="submit" class="btn btn-primary w-100 mb-3">Увійти</button>
+            <div class="text-center"><a href="#" onclick="toggleAuth('register')">Зареєструватись</a></div>
+        </form>
+    </div>
+
+    <div class="login-card d-none" id="register-form-container">
+        <h3 class="text-center mb-4">Реєстрація</h3>
+        <div id="register-msg" class="alert d-none py-2 small"></div>
+        <form onsubmit="event.preventDefault(); register();">
+            <div class="mb-2"><label>ПІБ</label><input type="text" id="reg-name" class="form-control" required></div>
+            <div class="mb-2"><label>Email</label><input type="email" id="reg-email" class="form-control" required></div>
+            <div class="mb-2"><label>Телефон</label><input type="text" id="reg-phone" class="form-control" required></div>
+            <div class="mb-3"><label>Пароль</label><input type="password" id="reg-password" class="form-control" required></div>
+            <button type="submit" class="btn btn-success w-100 mb-3">Надіслати заявку</button>
+            <div class="text-center"><a href="#" onclick="toggleAuth('login')">Повернутись до входу</a></div>
+        </form>
+    </div>
+</div>
+
+<div id="app-screen">
+    <div class="sidebar">
+        <h4 class="text-center py-3 border-bottom">CoffeeNet</h4>
+        <div class="p-3 bg-dark text-center text-white border-bottom">
+            <b id="u-name">?</b><br><span class="badge bg-secondary" id="u-role">?</span>
+        </div>
+        <div id="nav-items"></div>
+        <a class="text-danger mt-3" onclick="logout()"><i class="fa-solid fa-right-from-bracket me-2"></i>Вийти</a>
+    </div>
+    <div class="main-content">
+        <div id="dashboard" class="view-section active"><h2>Дашборд</h2><div class="row" id="stats"></div></div>
+        <div id="machines" class="view-section">
+            <div class="d-flex justify-content-between mb-4">
+                <h2>Кавомашини</h2>
+                <button class="btn btn-primary" id="req-btn" data-bs-toggle="modal" data-bs-target="#reqModal" style="display:none;">Замовити апарат</button>
+            </div>
+            <div class="row g-3" id="m-grid"></div>
+        </div>
+        <div id="users" class="view-section"><h2>Користувачі</h2><table class="table table-bordered bg-white"><thead><tr><th>Ім'я</th><th>Email</th><th>Статус</th><th>Дії</th></tr></thead><tbody id="u-table"></tbody></table></div>
+    </div>
+</div>
+
+<div class="modal fade" id="reqModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5>Заявка на апарат</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form onsubmit="event.preventDefault(); reqMachine();">
+        <div class="mb-3"><label>Місто</label><input type="text" id="rc" class="form-control" required></div>
+        <div class="mb-3"><label>Адреса</label><input type="text" id="ra" class="form-control" required></div>
+        <div class="mb-3"><label>Тип</label><input type="text" id="rt" class="form-control" required></div>
+        <button class="btn btn-primary w-100">Відправити</button>
+    </form></div>
+</div></div></div>
+
+<div class="modal fade" id="assignModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5>Призначення</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><form onsubmit="event.preventDefault(); assign();">
+        <input type="hidden" id="aid">
+        <div class="mb-3"><label>Модель</label><input type="text" id="am" class="form-control" required></div>
+        <div class="mb-3"><label>SN</label><input type="text" id="as" class="form-control" required></div>
+        <button class="btn btn-success w-100">Активувати</button>
+    </form></div>
+</div></div></div>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const API = '/api';
+    function toggleAuth(t) { document.getElementById('login-form-container').className = t==='login'?'login-card':'d-none'; document.getElementById('register-form-container').className = t==='register'?'login-card':'d-none'; }
+    async function login() { 
+        const res = await fetch(API+'/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:document.getElementById('login-email').value, password:document.getElementById('login-password').value}) });
+        const d = await res.json();
+        if(res.ok) { localStorage.setItem('t', d.token); localStorage.setItem('r', d.role); localStorage.setItem('n', d.name); checkAuth(); } else alert(d.error);
+    }
+    async function register() {
+        const res = await fetch(API+'/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:document.getElementById('reg-name').value, email:document.getElementById('reg-email').value, phone:document.getElementById('reg-phone').value}) });
+        if(res.ok) { alert('Заявку прийнято'); toggleAuth('login'); } else alert('Помилка');
+    }
+    function logout() { localStorage.clear(); location.reload(); }
+    function checkAuth() {
+        if(localStorage.getItem('t')) {
+            document.getElementById('auth-screen').style.display='none'; document.getElementById('app-screen').style.display='block';
+            document.getElementById('u-name').innerText = localStorage.getItem('n');
+            document.getElementById('u-role').innerText = localStorage.getItem('r');
+            const r = localStorage.getItem('r');
+            let nav = `<a onclick="v('dashboard')">Дашборд</a><a onclick="v('machines')">Кавомашини</a>`;
+            if(r==='admin') nav += `<a onclick="v('users')">Користувачі</a>`;
+            document.getElementById('nav-items').innerHTML = nav; v('dashboard');
+            document.getElementById('req-btn').style.display = r==='franchisee'?'block':'none';
+        } 
+    }
+    function v(s) {
+        document.querySelectorAll('.view-section').forEach(e=>e.classList.remove('active')); document.getElementById(s).classList.add('active');
+        if(s==='dashboard') loadD(); if(s==='users') loadU(); if(s==='machines') loadM();
+    }
+    async function f(u, o={}) { const r = await fetch(u, { ...o, headers:{...o.headers, 'Authorization':'Bearer '+localStorage.getItem('t')} }); if(r.status===401) logout(); return r.json(); }
+    async function loadD() {
+        const s = await f(API+'/dashboard/stats');
+        document.getElementById('stats').innerHTML = `<div class="col-4"><div class="card p-3">Апаратів: ${s.machinesCount}</div></div><div class="col-4"><div class="card p-3">Користувачів: ${s.usersCount}</div></div>`;
+    }
+    async function loadU() {
+        const u = await f(API+'/users');
+        document.getElementById('u-table').innerHTML = u.map(x=> `<tr><td>${x.name}</td><td>${x.email}</td><td>${x.status}</td><td>${x.status==='pending'?'<button onclick="uS(\''+x._id+'\',\'active\')">Одобрити</button>':''}</td></tr>`).join('');
+    }
+    async function uS(id, s) { await f(API+'/users/'+id+'/status', { method:'PATCH', body:JSON.stringify({status:s}), headers:{'Content-Type':'application/json'} }); loadU(); }
+    async function loadM() {
+        const m = await f(API+'/machines'); const r = localStorage.getItem('r');
+        document.getElementById('m-grid').innerHTML = m.map(x=> `<div class="col-4"><div class="card p-3">${x.status==='requested' && r==='admin' ? '<button onclick="oA(\''+x._id+'\')">Призначити</button>':''} <b>${x.model||'Заявка'}</b><br>${x.location.address} (${x.status})</div></div>`).join('');
+    }
+    async function reqMachine() {
+        await f(API+'/machines/request', { method:'POST', body:JSON.stringify({city:document.getElementById('rc').value, address:document.getElementById('ra').value, place_type:document.getElementById('rt').value}), headers:{'Content-Type':'application/json'} });
+        bootstrap.Modal.getInstance(document.getElementById('reqModal')).hide(); loadM();
+    }
+    function oA(id) { document.getElementById('aid').value=id; new bootstrap.Modal(document.getElementById('assignModal')).show(); }
+    async function assign() {
+        await f(API+'/machines/'+document.getElementById('aid').value+'/assign', { method:'PATCH', body:JSON.stringify({model:document.getElementById('am').value, serial_number:document.getElementById('as').value}), headers:{'Content-Type':'application/json'} });
+        bootstrap.Modal.getInstance(document.getElementById('assignModal')).hide(); loadM();
+    }
+    checkAuth();
+</script></body></html>
