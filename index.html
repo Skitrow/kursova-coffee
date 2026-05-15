@@ -238,6 +238,8 @@
         .btn-success-sm:hover { background: #059669; color: white; }
         .btn-warning-sm { background: #fef3c7; color: #92400e; }
         .btn-warning-sm:hover { background: #d97706; color: white; }
+        .btn-danger-sm { background: #fee2e2; color: #991b1b; }
+        .btn-danger-sm:hover { background: #dc2626; color: white; }
 
         /* ===== TOAST ===== */
         .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 99999; }
@@ -271,7 +273,7 @@
 </head>
 <body>
 
-<!-- ==================== ЕКРАН ЛОГІНУ ==================== -->
+
 <div id="login-screen">
     <div class="login-card">
         <div class="text-center mb-4">
@@ -279,7 +281,16 @@
             <h3 class="mb-0">CoffeeNet ERP</h3>
             <p class="text-muted small mt-1">Система управління мережею кав'ярень</p>
         </div>
-        <div id="login-error" class="alert alert-danger d-none py-2 small"></div>
+        
+        <ul class="nav nav-pills nav-justified mb-4">
+            <li class="nav-item"><a class="nav-link active" href="#" onclick="toggleAuthMode('login')" id="tab-login">Вхід</a></li>
+            <li class="nav-item"><a class="nav-link" href="#" onclick="toggleAuthMode('register')" id="tab-register">Стати франчайзі</a></li>
+        </ul>
+
+        <div id="auth-error" class="alert alert-danger d-none py-2 small"></div>
+        <div id="auth-success" class="alert alert-success d-none py-2 small"></div>
+
+        
         <form id="login-form" onsubmit="event.preventDefault(); login();">
             <div class="mb-3">
                 <label class="form-label fw-semibold small">Email адреса</label>
@@ -299,12 +310,31 @@
                 🔧 vasyl.tech@coffee-net.ua (Технік)
             </div>
         </form>
+
+        
+        <form id="register-form" style="display: none;" onsubmit="event.preventDefault(); register();">
+            <div class="mb-3">
+                <label class="form-label fw-semibold small">ПІБ або Назва компанії</label>
+                <input type="text" id="reg-name" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold small">Email адреса</label>
+                <input type="email" id="reg-email" class="form-control" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-semibold small">Телефон</label>
+                <input type="text" id="reg-phone" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="reg-btn">
+                <i class="fa-solid fa-user-plus me-2"></i>Подати заявку
+            </button>
+        </form>
     </div>
 </div>
 
-<!-- ==================== ОСНОВНА CRM ==================== -->
+
 <div id="app-screen">
-    <!-- SIDEBAR -->
+    
     <div class="sidebar">
         <div class="sidebar-brand">
             <i class="fa-solid fa-mug-hot"></i>
@@ -318,7 +348,7 @@
             </div>
         </div>
         <div class="nav-items" id="nav-items">
-            <!-- Заповнюється JS залежно від ролі -->
+            
         </div>
         <div class="nav-logout">
             <button class="btn-logout" onclick="logout()">
@@ -327,10 +357,10 @@
         </div>
     </div>
 
-    <!-- MAIN CONTENT -->
+    
     <div class="main-content">
 
-        <!-- DASHBOARD -->
+        
         <div id="dashboard" class="view-section active">
             <div class="page-header">
                 <h2><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Огляд системи</h2>
@@ -408,18 +438,42 @@
             </div>
         </div>
 
-        <!-- КАВОМАШИНИ -->
+        
         <div id="machines" class="view-section">
-            <div class="page-header">
-                <h2><i class="fa-solid fa-server me-2 text-primary"></i>Кавомашини</h2>
-                <p>Поточний стан та телеметрія всіх апаратів мережі</p>
+            <div class="page-header d-flex align-items-start justify-content-between">
+                <div>
+                    <h2><i class="fa-solid fa-server me-2 text-primary"></i>Кавомашини</h2>
+                    <p>Поточний стан та керування апаратами</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn-primary-custom" id="btn-order-machine" style="display:none;" onclick="openModal('modal-machine-request')">
+                        <i class="fa-solid fa-plus"></i> Замовити апарат
+                    </button>
+                    <button class="btn-primary-custom" id="btn-add-machine-admin" style="display:none;" onclick="openModal('modal-add-machine')">
+                        <i class="fa-solid fa-plus"></i> Додати машину (Admin)
+                    </button>
+                </div>
             </div>
+
+            
+            <div class="content-card mb-4" id="machine-requests-container" style="display:none;">
+                <div class="card-header-custom">
+                    <h5>Заявки на отримання апаратів</h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead><tr><th>Франчайзі</th><th>Бажана модель</th><th>Коментар</th><th>Статус</th><th>Дії</th></tr></thead>
+                        <tbody id="machine-requests-table"><tr><td colspan="5" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="row g-3" id="machines-grid">
                 <div class="col-12 text-center py-5"><div class="spinner"></div></div>
             </div>
         </div>
 
-        <!-- ЗАМОВЛЕННЯ -->
+        
         <div id="orders" class="view-section">
             <div class="page-header d-flex align-items-start justify-content-between">
                 <div>
@@ -440,7 +494,7 @@
             </div>
         </div>
 
-        <!-- ІНГРЕДІЄНТИ (КАТАЛОГ + КОШИК) -->
+        
         <div id="ingredients" class="view-section">
             <div class="page-header">
                 <h2><i class="fa-solid fa-box-open me-2 text-primary"></i>Каталог інгредієнтів</h2>
@@ -476,7 +530,7 @@
             </div>
         </div>
 
-        <!-- ЗАВДАННЯ ТЕХНІКІВ -->
+        
         <div id="maintenance" class="view-section">
             <div class="page-header d-flex align-items-start justify-content-between">
                 <div>
@@ -494,7 +548,7 @@
             </div>
         </div>
 
-        <!-- РОЯЛТІ (АДМІН) -->
+        
         <div id="royalty" class="view-section">
             <div class="page-header">
                 <h2><i class="fa-solid fa-coins me-2 text-primary"></i>Розрахунок роялті</h2>
@@ -505,23 +559,23 @@
             </div>
         </div>
 
-        <!-- КОРИСТУВАЧІ (АДМІН) -->
+        
         <div id="users" class="view-section">
             <div class="page-header">
                 <h2><i class="fa-solid fa-users me-2 text-primary"></i>Користувачі системи</h2>
-                <p>Управління акаунтами адмінів, техніків та франчайзі</p>
+                <p>Управління акаунтами та модерація франчайзі</p>
             </div>
             <div class="content-card">
                 <div class="table-responsive">
                     <table class="table table-hover">
-                        <thead><tr><th>Ім'я</th><th>Роль</th><th>Email</th><th>Телефон</th><th>Дата реєстрації</th></tr></thead>
-                        <tbody id="users-table"><tr><td colspan="5" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
+                        <thead><tr><th>Ім'я</th><th>Роль</th><th>Email</th><th>Телефон</th><th>Статус</th><th>Дії</th></tr></thead>
+                        <tbody id="users-table"><tr><td colspan="6" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- ТЕЛЕМЕТРІЯ (АДМІН) -->
+        
         <div id="telemetry" class="view-section">
             <div class="page-header">
                 <h2><i class="fa-solid fa-signal me-2 text-primary"></i>Журнал телеметрії</h2>
@@ -543,10 +597,72 @@
             </div>
         </div>
 
-    </div><!-- /main-content -->
-</div><!-- /app-screen -->
+    </div>
+</div>
 
-<!-- TOAST -->
+
+
+
+<div class="modal-card" id="modal-machine-request">
+    <div class="modal-box">
+        <h4 class="mb-4">Замовлення нового апарату</h4>
+        <form onsubmit="event.preventDefault(); submitMachineRequest();">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Бажана модель</label>
+                <select class="form-select" id="req-machine-model" required>
+                    <option value="CoffeeNet Pro X1">CoffeeNet Pro X1 (Стандарт)</option>
+                    <option value="CoffeeNet Max 2000">CoffeeNet Max 2000 (Для великого трафіку)</option>
+                    <option value="CoffeeNet Mini">CoffeeNet Mini (Компактна)</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Локація / Коментар</label>
+                <textarea class="form-control" id="req-machine-comment" rows="3" placeholder="Вкажіть місто, тип локації тощо"></textarea>
+            </div>
+            <div class="d-flex gap-2 justify-content-end">
+                <button type="button" class="btn btn-light" onclick="closeModal('modal-machine-request')">Скасувати</button>
+                <button type="submit" class="btn btn-primary">Відправити заявку</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<div class="modal-card" id="modal-add-machine">
+    <div class="modal-box">
+        <h4 class="mb-4">Реєстрація нової машини</h4>
+        <form onsubmit="event.preventDefault(); submitNewMachine();">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">ID Франчайзі (власника)</label>
+                <input type="number" class="form-control" id="add-machine-user" placeholder="Наприклад, 2" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Модель</label>
+                <input type="text" class="form-control" id="add-machine-model" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Серійний номер</label>
+                <input type="text" class="form-control" id="add-machine-sn" required>
+            </div>
+            <div class="row mb-4">
+                <div class="col-6">
+                    <label class="form-label fw-semibold">Місто</label>
+                    <input type="text" class="form-control" id="add-machine-city">
+                </div>
+                <div class="col-6">
+                    <label class="form-label fw-semibold">Адреса</label>
+                    <input type="text" class="form-control" id="add-machine-address">
+                </div>
+            </div>
+            <div class="d-flex gap-2 justify-content-end">
+                <button type="button" class="btn btn-light" onclick="closeModal('modal-add-machine')">Скасувати</button>
+                <button type="submit" class="btn btn-primary">Створити</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
 <div class="toast-container" id="toast-container"></div>
 
 <script>
@@ -557,16 +673,41 @@ let allIngredients = [];
 let ordersChartInstance = null;
 
 // ==========================================
-// АВТОРИЗАЦІЯ
+// UI УТИЛІТИ
 // ==========================================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ==========================================
+// АВТОРИЗАЦІЯ ТА РЕЄСТРАЦІЯ
+// ==========================================
+function toggleAuthMode(mode) {
+    const err = document.getElementById('auth-error');
+    const suc = document.getElementById('auth-success');
+    err.classList.add('d-none'); suc.classList.add('d-none');
+
+    if (mode === 'login') {
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('tab-login').classList.add('active');
+        document.getElementById('tab-register').classList.remove('active');
+    } else {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('register-form').style.display = 'block';
+        document.getElementById('tab-register').classList.add('active');
+        document.getElementById('tab-login').classList.remove('active');
+    }
+}
+
 async function login() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    const errorDiv = document.getElementById('login-error');
+    const errorDiv = document.getElementById('auth-error');
     const btn = document.getElementById('login-btn');
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner me-2"></span>Вхід...';
+    document.getElementById('auth-success').classList.add('d-none');
 
     try {
         const res = await fetch(`${API_URL}/login`, {
@@ -594,6 +735,41 @@ async function login() {
 
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-right-to-bracket me-2"></i>Увійти в систему';
+}
+
+async function register() {
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    const phone = document.getElementById('reg-phone').value;
+    const errorDiv = document.getElementById('auth-error');
+    const successDiv = document.getElementById('auth-success');
+    const btn = document.getElementById('reg-btn');
+
+    btn.disabled = true;
+    errorDiv.classList.add('d-none'); successDiv.classList.add('d-none');
+
+    try {
+        const res = await fetch(`${API_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, phone, role: 'franchisee' })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            successDiv.innerText = "Заявку на реєстрацію успішно подано. Очікуйте підтвердження адміністратором.";
+            successDiv.classList.remove('d-none');
+            document.getElementById('register-form').reset();
+            setTimeout(() => toggleAuthMode('login'), 3000);
+        } else {
+            errorDiv.innerText = data.error || "Сталася помилка при реєстрації";
+            errorDiv.classList.remove('d-none');
+        }
+    } catch {
+        errorDiv.innerText = "Помилка зв'язку з сервером.";
+        errorDiv.classList.remove('d-none');
+    }
+    btn.disabled = false;
 }
 
 function logout() {
@@ -744,7 +920,6 @@ async function loadDashboard() {
                 </tr>
             `).join('');
         }
-
         renderOrdersChart();
     } catch (err) { console.error(err); }
 }
@@ -775,9 +950,21 @@ async function renderOrdersChart() {
 }
 
 // ==========================================
-// КАВОМАШИНИ
+// КАВОМАШИНИ ТА ЗАЯВКИ
 // ==========================================
 async function loadMachines() {
+    const role = localStorage.getItem('crm_role');
+    document.getElementById('btn-order-machine').style.display = (role === 'franchisee') ? 'inline-flex' : 'none';
+    document.getElementById('btn-add-machine-admin').style.display = (role === 'admin') ? 'inline-flex' : 'none';
+
+    const reqContainer = document.getElementById('machine-requests-container');
+    if (role === 'admin' || role === 'franchisee') {
+        reqContainer.style.display = 'block';
+        loadMachineRequests(role);
+    } else {
+        reqContainer.style.display = 'none';
+    }
+
     const grid = document.getElementById('machines-grid');
     try {
         const machines = await fetchWithAuth(`${API_URL}/machines`);
@@ -831,6 +1018,86 @@ async function loadMachines() {
     } catch (err) { grid.innerHTML = '<div class="col-12 text-center text-danger">Помилка завантаження</div>'; }
 }
 
+async function loadMachineRequests(role) {
+    try {
+        const reqs = await fetchWithAuth(`${API_URL}/machine-requests`);
+        const tbody = document.getElementById('machine-requests-table');
+        if (!reqs.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Заявок немає</td></tr>';
+            return;
+        }
+
+        const statusCls = {
+            'pending': 'status-warning',
+            'approved': 'status-active',
+            'rejected': 'status-error',
+            'delivered': 'status-sent'
+        };
+        const statusLabels = { 'pending':'Очікує', 'approved':'Схвалено', 'rejected':'Відхилено', 'delivered':'Доставлено' };
+
+        tbody.innerHTML = reqs.map(r => `
+            <tr>
+                <td class="fw-semibold">${r.franchisee_name || 'Я'}</td>
+                <td>${r.model_requested}</td>
+                <td class="text-muted small">${r.comment || ''}</td>
+                <td><span class="status-badge ${statusCls[r.status]}">${statusLabels[r.status]}</span></td>
+                <td>
+                    ${role === 'admin' && r.status === 'pending' ? `
+                        <button class="btn-sm-action btn-success-sm" onclick="changeReqStatus('${r._id}', 'approved')">Схвалити</button>
+                        <button class="btn-sm-action btn-danger-sm" onclick="changeReqStatus('${r._id}', 'rejected')">Відхилити</button>
+                    ` : '–'}
+                </td>
+            </tr>
+        `).join('');
+    } catch(err) { console.error('Error loading requests', err); }
+}
+
+async function submitMachineRequest() {
+    const model = document.getElementById('req-machine-model').value;
+    const comment = document.getElementById('req-machine-comment').value;
+    try {
+        await fetchWithAuth(`${API_URL}/machine-requests`, {
+            method: 'POST',
+            body: JSON.stringify({ model_requested: model, comment })
+        });
+        toast('Заявку успішно подано!', 'success');
+        closeModal('modal-machine-request');
+        loadMachines(); // Оновлює таблиці
+    } catch { toast('Помилка подачі заявки', 'error'); }
+}
+
+async function submitNewMachine() {
+    const franchisee_id = document.getElementById('add-machine-user').value;
+    const model = document.getElementById('add-machine-model').value;
+    const serial_number = document.getElementById('add-machine-sn').value;
+    const city = document.getElementById('add-machine-city').value;
+    const address = document.getElementById('add-machine-address').value;
+
+    try {
+        await fetchWithAuth(`${API_URL}/machines`, {
+            method: 'POST',
+            body: JSON.stringify({
+                franchisee_id,
+                model, serial_number,
+                location: { city, address, place_type: 'Нова локація' }
+            })
+        });
+        toast('Машину успішно створено!', 'success');
+        closeModal('modal-add-machine');
+        loadMachines();
+    } catch { toast('Помилка створення машини', 'error'); }
+}
+
+async function changeReqStatus(id, status) {
+    try {
+        await fetchWithAuth(`${API_URL}/machine-requests/${id}/status`, {
+            method: 'PATCH', body: JSON.stringify({ status })
+        });
+        toast('Статус заявки оновлено', 'success');
+        loadMachines();
+    } catch { toast('Помилка оновлення статусу', 'error'); }
+}
+
 function setMachineSensor(id, type, value, isCups = false) {
     const pct = isCups ? Math.min(100, (value / 200) * 100) : value;
     const label = isCups ? `${value} шт.` : `${value}%`;
@@ -844,7 +1111,7 @@ function setMachineSensor(id, type, value, isCups = false) {
 }
 
 // ==========================================
-// ЗАМОВЛЕННЯ
+// ЗАМОВЛЕННЯ (ІНГРЕДІЄНТИ)
 // ==========================================
 async function loadOrders() {
     const role = localStorage.getItem('crm_role');
@@ -894,9 +1161,6 @@ async function updateOrderStatus(orderId, status) {
     } catch { toast('Помилка оновлення', 'error'); }
 }
 
-// ==========================================
-// ІНГРЕДІЄНТИ (КАТАЛОГ + КОШИК)
-// ==========================================
 async function loadIngredients() {
     try {
         allIngredients = await fetchWithAuth(`${API_URL}/ingredients`);
@@ -1099,23 +1363,49 @@ async function loadRoyalty() {
 }
 
 // ==========================================
-// КОРИСТУВАЧІ
+// КОРИСТУВАЧІ ТА МОДЕРАЦІЯ
 // ==========================================
 async function loadUsers() {
     try {
         const users = await fetchWithAuth(`${API_URL}/users`);
         const roleMap = { admin: '👑 Адмін', franchisee: '🏪 Франчайзі', technician: '🔧 Технік' };
+        const statusBadge = { 'pending': 'status-warning', 'approved': 'status-active', 'rejected': 'status-error' };
+        const statusMap = { 'pending': 'Очікує', 'approved': 'Активний', 'rejected': 'Заблоковано' };
+
         const tbody = document.getElementById('users-table');
         tbody.innerHTML = users.map(u => `
             <tr>
-                <td class="fw-semibold">${u.name}</td>
-                <td><span class="status-badge ${u.role === 'admin' ? 'status-sent' : u.role === 'franchisee' ? 'status-new' : 'status-done'}">${roleMap[u.role] || u.role}</span></td>
+                <td class="fw-semibold">${u.name} <br><small class="text-muted">ID: ${u._id}</small></td>
+                <td><span class="status-badge ${u.role === 'admin' ? 'status-sent' : 'status-new'}">${roleMap[u.role] || u.role}</span></td>
                 <td>${u.email}</td>
                 <td>${u.phone || '–'}</td>
-                <td class="text-muted small">${u.created_at ? formatDate(u.created_at) : '–'}</td>
+                <td><span class="status-badge ${statusBadge[u.status] || 'status-active'}">${statusMap[u.status] || u.status}</span></td>
+                <td>
+                    ${u.role === 'franchisee' && u.status === 'pending' ? `
+                        <button class="btn-sm-action btn-success-sm" onclick="changeUserStatus('${u._id}', 'approved')">Схвалити</button>
+                        <button class="btn-sm-action btn-danger-sm" onclick="changeUserStatus('${u._id}', 'rejected')">Відхилити</button>
+                    ` : `
+                        <select class="form-select form-select-sm" style="width:auto;display:inline-block;font-size:0.75rem" 
+                                onchange="changeUserStatus('${u._id}', this.value)" ${u.role === 'admin' ? 'disabled' : ''}>
+                            <option value="approved" ${u.status === 'approved' ? 'selected' : ''}>Активний</option>
+                            <option value="rejected" ${u.status === 'rejected' ? 'selected' : ''}>Заблокувати</option>
+                            <option value="pending" ${u.status === 'pending' ? 'selected' : ''}>Очікування</option>
+                        </select>
+                    `}
+                </td>
             </tr>
         `).join('');
     } catch (err) { console.error(err); }
+}
+
+async function changeUserStatus(userId, newStatus) {
+    try {
+        await fetchWithAuth(`${API_URL}/users/${userId}/status`, {
+            method: 'PATCH', body: JSON.stringify({ status: newStatus })
+        });
+        toast('Статус користувача оновлено', 'success');
+        loadUsers();
+    } catch { toast('Помилка оновлення статусу', 'error'); }
 }
 
 // ==========================================
@@ -1142,7 +1432,6 @@ async function loadTelemetry() {
     } catch (err) { console.error(err); }
 }
 
-// Симуляція IoT-сигналу (для демо / тестування)
 async function simulateTelemetry() {
     try {
         const machines = await fetchWithAuth(`${API_URL}/machines`);
