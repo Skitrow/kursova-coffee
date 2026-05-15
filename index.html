@@ -8,1185 +8,188 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        :root {
-            --sidebar-bg: #1a1d23;
-            --sidebar-hover: #2563eb;
-            --accent: #f59e0b;
-            --accent2: #10b981;
-            --danger: #ef4444;
-        }
-
-        * { box-sizing: border-box; }
+        :root { --sidebar-bg: #1a1d23; --sidebar-hover: #2563eb; --accent: #f59e0b; --accent2: #10b981; --danger: #ef4444; }
         body { background: #f0f2f7; font-family: 'Segoe UI', sans-serif; margin: 0; }
-
-        /* ===== LOGIN ===== */
-        #login-screen {
-            height: 100vh; display: flex; align-items: center; justify-content: center;
-            background: linear-gradient(135deg, #1a1d23 0%, #2d3748 50%, #1a1d23 100%);
-        }
-        .login-card {
-            background: white; padding: 48px 40px; border-radius: 16px;
-            width: 100%; max-width: 420px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-        }
-        .login-logo { font-size: 2.5rem; color: var(--accent); }
-        .login-card h3 { font-weight: 700; letter-spacing: -0.5px; }
-
-        /* ===== APP ===== */
+        #login-screen { height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #1a1d23 0%, #2d3748 50%, #1a1d23 100%); }
+        .login-card { background: white; padding: 30px; border-radius: 16px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
         #app-screen { display: none; }
-
-        /* ===== SIDEBAR ===== */
-        .sidebar {
-            height: 100vh; background: var(--sidebar-bg); color: white;
-            position: fixed; width: 260px; z-index: 1000;
-            display: flex; flex-direction: column;
-            box-shadow: 4px 0 20px rgba(0,0,0,0.2);
-        }
-        .sidebar-brand {
-            padding: 24px 20px 20px;
-            border-bottom: 1px solid #2d3748;
-            display: flex; align-items: center; gap: 12px;
-        }
-        .sidebar-brand i { color: var(--accent); font-size: 1.6rem; }
-        .sidebar-brand span { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.3px; }
-
-        .user-badge {
-            padding: 14px 20px; background: #252933;
-            border-bottom: 1px solid #2d3748;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .user-badge .avatar {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: var(--accent); color: #1a1d23;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
-        }
-        .user-badge .info .name { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; }
-        .user-badge .info .role-badge {
-            font-size: 0.68rem; padding: 1px 8px; border-radius: 20px;
-            font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
-        }
-        .role-admin { background: #7c3aed; color: white; }
-        .role-franchisee { background: #0284c7; color: white; }
-        .role-technician { background: #059669; color: white; }
-
-        .nav-items { flex: 1; overflow-y: auto; padding: 8px 0; }
-        .nav-item {
-            display: flex; align-items: center; gap: 12px;
-            padding: 11px 20px; color: #94a3b8;
-            cursor: pointer; transition: all 0.2s; border: none;
-            background: none; width: 100%; text-align: left;
-            font-size: 0.9rem; font-family: inherit;
-            border-left: 3px solid transparent;
-        }
+        .sidebar { height: 100vh; background: var(--sidebar-bg); color: white; position: fixed; width: 260px; z-index: 1000; display: flex; flex-direction: column; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: #94a3b8; cursor: pointer; border: none; background: none; width: 100%; text-align: left; border-left: 3px solid transparent; }
         .nav-item:hover { background: #252933; color: #e2e8f0; }
         .nav-item.active { background: #1e3a5f; color: white; border-left-color: var(--accent); }
-        .nav-item i { width: 18px; text-align: center; }
-
-        .nav-section { padding: 16px 20px 6px; font-size: 0.68rem; text-transform: uppercase;
-            letter-spacing: 1.2px; color: #4a5568; font-weight: 600; }
-
-        .nav-logout {
-            padding: 16px 20px; border-top: 1px solid #2d3748;
-        }
-        .btn-logout {
-            display: flex; align-items: center; gap: 10px;
-            color: #fc8181; background: none; border: none;
-            cursor: pointer; font-size: 0.9rem; font-family: inherit; padding: 8px 0;
-        }
-        .btn-logout:hover { color: var(--danger); }
-
-        /* ===== MAIN ===== */
         .main-content { margin-left: 260px; padding: 28px; min-height: 100vh; }
-        .page-header { margin-bottom: 24px; }
-        .page-header h2 { font-size: 1.6rem; font-weight: 700; color: #1a202c; margin: 0; }
-        .page-header p { color: #718096; margin: 4px 0 0; font-size: 0.9rem; }
-
         .view-section { display: none; }
         .view-section.active { display: block; }
-
-        /* ===== STAT CARDS ===== */
-        .stat-card {
-            background: white; border-radius: 14px; padding: 22px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-            display: flex; align-items: center; gap: 18px;
-        }
-        .stat-icon {
-            width: 52px; height: 52px; border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.3rem; flex-shrink: 0;
-        }
-        .stat-icon.blue { background: #dbeafe; color: #2563eb; }
-        .stat-icon.red { background: #fee2e2; color: #dc2626; }
-        .stat-icon.green { background: #d1fae5; color: #059669; }
-        .stat-icon.yellow { background: #fef3c7; color: #d97706; }
-        .stat-icon.purple { background: #ede9fe; color: #7c3aed; }
-        .stat-value { font-size: 1.8rem; font-weight: 800; color: #1a202c; line-height: 1; }
-        .stat-label { font-size: 0.82rem; color: #718096; margin-top: 2px; }
-
-        /* ===== CARDS ===== */
-        .content-card {
-            background: white; border-radius: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-            overflow: hidden;
-        }
-        .card-header-custom {
-            padding: 18px 22px; border-bottom: 1px solid #f0f2f7;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .card-header-custom h5 { margin: 0; font-weight: 700; color: #1a202c; font-size: 1rem; }
-
-        /* ===== TABLES ===== */
-        .table { margin: 0; }
-        .table thead th { background: #f8fafc; color: #4a5568; font-size: 0.78rem;
-            text-transform: uppercase; letter-spacing: 0.7px; font-weight: 600;
-            padding: 14px 16px; border-bottom: 2px solid #e2e8f0; }
-        .table tbody td { padding: 13px 16px; vertical-align: middle;
-            color: #2d3748; font-size: 0.9rem; border-color: #f0f2f7; }
-        .table tbody tr:hover { background: #f8fafc; }
-
-        /* ===== BADGES ===== */
-        .status-badge {
-            padding: 3px 10px; border-radius: 20px; font-size: 0.75rem;
-            font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
-        }
-        .status-active { background: #d1fae5; color: #065f46; }
-        .status-warning { background: #fef3c7; color: #92400e; }
-        .status-error { background: #fee2e2; color: #991b1b; }
-        .status-new { background: #dbeafe; color: #1e40af; }
-        .status-progress { background: #fef3c7; color: #92400e; }
-        .status-done { background: #d1fae5; color: #065f46; }
-        .status-sent { background: #ede9fe; color: #5b21b6; }
-
-        /* ===== MACHINE CARDS ===== */
-        .machine-card {
-            background: white; border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-            padding: 20px; transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .machine-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
-        .machine-sn { font-size: 0.75rem; color: #718096; font-family: monospace; }
-        .machine-model { font-size: 1rem; font-weight: 700; color: #1a202c; }
-        .machine-location { font-size: 0.85rem; color: #4a5568; margin-top: 4px; }
-        .sensor-bar { height: 6px; border-radius: 3px; background: #e2e8f0; margin-top: 4px; }
-        .sensor-fill { height: 100%; border-radius: 3px; transition: width 0.6s; }
-        .sensor-label { font-size: 0.75rem; color: #718096; display: flex; justify-content: space-between; margin-top: 6px; }
-
-        /* ===== INGREDIENTS CART ===== */
-        .ingredient-row {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 16px; border-bottom: 1px solid #f0f2f7;
-        }
-        .ingredient-row:last-child { border-bottom: none; }
-        .qty-control { display: flex; align-items: center; gap: 8px; }
-        .qty-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e8f0;
-            background: #f8fafc; cursor: pointer; font-weight: 700; display: flex;
-            align-items: center; justify-content: center; transition: all 0.15s; }
-        .qty-btn:hover { background: #2563eb; color: white; border-color: #2563eb; }
-        .qty-input { width: 50px; text-align: center; border: 1px solid #e2e8f0;
-            border-radius: 6px; padding: 3px; font-size: 0.9rem; }
-
-        /* ===== TASK CARDS ===== */
-        .task-card {
-            background: white; border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-            padding: 18px; border-left: 4px solid #e2e8f0;
-            transition: all 0.2s;
-        }
-        .task-card.priority-new { border-left-color: #2563eb; }
-        .task-card.priority-progress { border-left-color: var(--accent); }
-        .task-card.priority-done { border-left-color: var(--accent2); opacity: 0.7; }
-
-        /* ===== ROYALTY ===== */
-        .royalty-card {
-            background: white; border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 20px;
-        }
-        .royalty-name { font-weight: 700; color: #1a202c; }
-        .royalty-amount { font-size: 1.4rem; font-weight: 800; color: #2563eb; }
-        .royalty-balance { font-size: 0.85rem; }
-
-        /* ===== MODAL ===== */
-        .modal-card {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5); z-index: 9999;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.2s;
-        }
-        .modal-card.open { opacity: 1; pointer-events: all; }
-        .modal-box {
-            background: white; border-radius: 16px;
-            width: 90%; max-width: 560px; max-height: 85vh;
-            overflow-y: auto; padding: 28px;
-            transform: scale(0.95); transition: transform 0.2s;
-        }
-        .modal-card.open .modal-box { transform: scale(1); }
-
-        /* ===== BUTTONS ===== */
-        .btn-primary-custom {
-            background: #2563eb; color: white; border: none;
-            border-radius: 8px; padding: 9px 18px; font-size: 0.88rem;
-            font-weight: 600; cursor: pointer; transition: all 0.2s;
-            display: inline-flex; align-items: center; gap: 6px;
-        }
-        .btn-primary-custom:hover { background: #1d4ed8; }
-        .btn-sm-action {
-            padding: 5px 12px; border-radius: 6px; font-size: 0.78rem;
-            font-weight: 600; border: none; cursor: pointer; transition: all 0.15s;
-        }
-        .btn-success-sm { background: #d1fae5; color: #065f46; }
-        .btn-success-sm:hover { background: #059669; color: white; }
-        .btn-warning-sm { background: #fef3c7; color: #92400e; }
-        .btn-warning-sm:hover { background: #d97706; color: white; }
-
-        /* ===== TOAST ===== */
-        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 99999; }
-        .toast-msg {
-            background: #1a202c; color: white; padding: 14px 20px;
-            border-radius: 10px; margin-top: 10px; min-width: 260px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-            animation: slideIn 0.3s ease;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .toast-msg.success { border-left: 4px solid #10b981; }
-        .toast-msg.error { border-left: 4px solid #ef4444; }
-        @keyframes slideIn { from { transform: translateX(80px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-        /* ===== EMPTY STATE ===== */
-        .empty-state { text-align: center; padding: 48px; color: #718096; }
-        .empty-state i { font-size: 3rem; margin-bottom: 16px; opacity: 0.3; }
-
-        /* ===== LOADER ===== */
-        .spinner { display: inline-block; width: 20px; height: 20px;
-            border: 3px solid #e2e8f0; border-top-color: #2563eb;
-            border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .sidebar { width: 220px; }
-            .main-content { margin-left: 220px; padding: 16px; }
-        }
+        .status-badge { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .status-active, .status-approved { background: #d1fae5; color: #065f46; }
+        .status-warning, .status-pending { background: #fef3c7; color: #92400e; }
+        .status-error, .status-rejected { background: #fee2e2; color: #991b1b; }
+        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+        .toast-msg { background: #1a202c; color: white; padding: 14px 20px; border-radius: 10px; margin-top: 10px; border-left: 4px solid #10b981; }
     </style>
 </head>
 <body>
 
-<!-- ==================== ЕКРАН ЛОГІНУ ==================== -->
 <div id="login-screen">
-    <div class="login-card">
+    <div class="login-card" id="auth-box">
         <div class="text-center mb-4">
-            <div class="login-logo mb-2"><i class="fa-solid fa-mug-hot"></i></div>
-            <h3 class="mb-0">CoffeeNet ERP</h3>
-            <p class="text-muted small mt-1">Система управління мережею кав'ярень</p>
+            <i class="fa-solid fa-mug-hot fa-3x text-warning"></i>
+            <h3 class="mt-2" id="auth-title">CoffeeNet ERP</h3>
         </div>
-        <div id="login-error" class="alert alert-danger d-none py-2 small"></div>
-        <form id="login-form" onsubmit="event.preventDefault(); login();">
-            <div class="mb-3">
-                <label class="form-label fw-semibold small">Email адреса</label>
-                <input type="email" id="login-email" class="form-control" value="admin@coffee-net.ua" required>
-            </div>
-            <div class="mb-4">
-                <label class="form-label fw-semibold small">Пароль</label>
-                <input type="password" id="login-password" class="form-control" value="123456" required>
-            </div>
-            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="login-btn">
-                <i class="fa-solid fa-right-to-bracket me-2"></i>Увійти в систему
-            </button>
-            <div class="mt-3 p-2 bg-light rounded small text-muted">
-                <strong>Demo:</strong><br>
-                👑 admin@coffee-net.ua (Адмін)<br>
-                🏪 irina.franchise@gmail.com (Франчайзі)<br>
-                🔧 vasyl.tech@coffee-net.ua (Технік)
-            </div>
+        <div id="auth-error" class="alert alert-danger d-none"></div>
+        <form id="login-form">
+            <div class="mb-3"><label class="small fw-bold">Email</label><input type="email" id="login-email" class="form-control" required></div>
+            <div class="mb-3"><label class="small fw-bold">Пароль</label><input type="password" id="login-password" class="form-control" required></div>
+            <button type="button" class="btn btn-primary w-100 mb-2" onclick="login()">Увійти</button>
+            <p class="text-center small">Немає акаунту? <a href="#" onclick="toggleAuth(true)">Зареєструвати франшизу</a></p>
+        </form>
+        <form id="register-form" class="d-none">
+            <div class="mb-2"><label class="small fw-bold">ПІБ</label><input type="text" id="reg-name" class="form-control" required></div>
+            <div class="mb-2"><label class="small fw-bold">Email</label><input type="email" id="reg-email" class="form-control" required></div>
+            <div class="mb-2"><label class="small fw-bold">Телефон</label><input type="text" id="reg-phone" class="form-control" required></div>
+            <div class="mb-2"><label class="small fw-bold">Пароль</label><input type="password" id="reg-password" class="form-control" required></div>
+            <button type="button" class="btn btn-success w-100 mb-2" onclick="register()">Відправити заявку</button>
+            <p class="text-center small">Вже є акаунт? <a href="#" onclick="toggleAuth(false)">Увійти</a></p>
         </form>
     </div>
 </div>
 
-<!-- ==================== ОСНОВНА CRM ==================== -->
 <div id="app-screen">
-    <!-- SIDEBAR -->
     <div class="sidebar">
-        <div class="sidebar-brand">
-            <i class="fa-solid fa-mug-hot"></i>
-            <span>CoffeeNet</span>
-        </div>
-        <div class="user-badge">
-            <div class="avatar" id="user-avatar">?</div>
-            <div class="info">
-                <div class="name" id="current-user-name">–</div>
-                <span class="role-badge" id="current-user-role">–</span>
-            </div>
-        </div>
-        <div class="nav-items" id="nav-items">
-            <!-- Заповнюється JS залежно від ролі -->
-        </div>
-        <div class="nav-logout">
-            <button class="btn-logout" onclick="logout()">
-                <i class="fa-solid fa-right-from-bracket"></i> Вийти з системи
-            </button>
-        </div>
+        <div class="p-4 border-bottom"><h5>CoffeeNet ERP</h5></div>
+        <div class="p-3 small text-white-50" id="user-info">Завантаження...</div>
+        <div id="nav-items"></div>
+        <button class="mt-auto p-3 btn text-danger text-start" onclick="logout()"><i class="fa-solid fa-sign-out me-2"></i>Вийти</button>
     </div>
 
-    <!-- MAIN CONTENT -->
     <div class="main-content">
-
-        <!-- DASHBOARD -->
-        <div id="dashboard" class="view-section active">
-            <div class="page-header">
-                <h2><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Огляд системи</h2>
-                <p>Моніторинг ключових показників мережі в реальному часі</p>
-            </div>
-            <div class="row g-3 mb-4" id="stat-cards">
-                <div class="col-6 col-md-4 col-xl-2-4">
-                    <div class="stat-card">
-                        <div class="stat-icon blue"><i class="fa-solid fa-server"></i></div>
-                        <div>
-                            <div class="stat-value" id="stat-machines">–</div>
-                            <div class="stat-label">Апаратів</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-4 col-xl-2-4">
-                    <div class="stat-card">
-                        <div class="stat-icon red"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                        <div>
-                            <div class="stat-value" id="stat-errors">–</div>
-                            <div class="stat-label">Помилок IoT</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-4 col-xl-2-4">
-                    <div class="stat-card">
-                        <div class="stat-icon green"><i class="fa-solid fa-users"></i></div>
-                        <div>
-                            <div class="stat-value" id="stat-users">–</div>
-                            <div class="stat-label">Користувачів</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-4 col-xl-2-4">
-                    <div class="stat-card">
-                        <div class="stat-icon yellow"><i class="fa-solid fa-wrench"></i></div>
-                        <div>
-                            <div class="stat-value" id="stat-tasks">–</div>
-                            <div class="stat-label">Завдань активних</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-6 col-md-4 col-xl-2-4">
-                    <div class="stat-card">
-                        <div class="stat-icon purple"><i class="fa-solid fa-coins"></i></div>
-                        <div>
-                            <div class="stat-value" id="stat-revenue">–</div>
-                            <div class="stat-label">Виручка ₴</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row g-3">
-                <div class="col-md-7">
-                    <div class="content-card">
-                        <div class="card-header-custom">
-                            <h5><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Спрацювання датчиків</h5>
-                            <span class="badge bg-danger" id="error-count-badge">0</span>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead><tr><th>Апарат</th><th>Помилка</th><th>Датчики</th><th>Час</th></tr></thead>
-                                <tbody id="errors-table"><tr><td colspan="4" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-5">
-                    <div class="content-card p-3">
-                        <h5 class="fw-700 mb-3">Розподіл замовлень</h5>
-                        <canvas id="ordersChart" height="200"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- КАВОМАШИНИ -->
+        <div id="dashboard" class="view-section active"><h2>Дашборд</h2><div id="stats-row" class="row g-3"></div></div>
+        
         <div id="machines" class="view-section">
-            <div class="page-header">
-                <h2><i class="fa-solid fa-server me-2 text-primary"></i>Кавомашини</h2>
-                <p>Поточний стан та телеметрія всіх апаратів мережі</p>
-            </div>
-            <div class="row g-3" id="machines-grid">
-                <div class="col-12 text-center py-5"><div class="spinner"></div></div>
-            </div>
+            <div class="d-flex justify-content-between mb-3"><h2>Кавомашини</h2><div id="machine-actions"></div></div>
+            <div id="machines-grid" class="row g-3"></div>
         </div>
 
-        <!-- ЗАМОВЛЕННЯ -->
-        <div id="orders" class="view-section">
-            <div class="page-header d-flex align-items-start justify-content-between">
-                <div>
-                    <h2><i class="fa-solid fa-cart-shopping me-2 text-primary"></i>Замовлення</h2>
-                    <p>Замовлення інгредієнтів від франчайзі</p>
-                </div>
-                <button class="btn-primary-custom" onclick="switchView('ingredients', null)" id="btn-new-order">
-                    <i class="fa-solid fa-plus"></i> Нове замовлення
-                </button>
-            </div>
-            <div class="content-card">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead><tr><th>ID</th><th>Дата</th><th>Сума</th><th>Статус</th><th>Дії</th></tr></thead>
-                        <tbody id="orders-table"><tr><td colspan="5" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ІНГРЕДІЄНТИ (КАТАЛОГ + КОШИК) -->
-        <div id="ingredients" class="view-section">
-            <div class="page-header">
-                <h2><i class="fa-solid fa-box-open me-2 text-primary"></i>Каталог інгредієнтів</h2>
-                <p>Оберіть інгредієнти для замовлення з центрального складу</p>
-            </div>
-            <div class="row g-3">
-                <div class="col-md-8">
-                    <div class="content-card">
-                        <div class="card-header-custom">
-                            <h5>Доступні товари</h5>
-                        </div>
-                        <div id="ingredients-list">
-                            <div class="text-center py-4"><div class="spinner"></div></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="content-card p-4 sticky-top" style="top: 20px;">
-                        <h5 class="fw-700 mb-3"><i class="fa-solid fa-shopping-cart me-2"></i>Кошик</h5>
-                        <div id="cart-items" class="mb-3">
-                            <p class="text-muted small text-center py-3">Додайте товари до кошика</p>
-                        </div>
-                        <hr>
-                        <div class="d-flex justify-content-between fw-bold mb-3">
-                            <span>Сума:</span>
-                            <span id="cart-total">0 ₴</span>
-                        </div>
-                        <button class="btn-primary-custom w-100 justify-content-center" onclick="submitOrder()">
-                            <i class="fa-solid fa-check"></i> Оформити замовлення
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ЗАВДАННЯ ТЕХНІКІВ -->
-        <div id="maintenance" class="view-section">
-            <div class="page-header d-flex align-items-start justify-content-between">
-                <div>
-                    <h2><i class="fa-solid fa-wrench me-2 text-primary"></i>Завдання на обслуговування</h2>
-                    <p>Маршрути та задачі для технічного персоналу</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn-primary-custom btn-sm" onclick="filterTasks('all')" id="filter-all">Всі</button>
-                    <button class="btn-primary-custom btn-sm" style="background:#dbeafe;color:#1e40af" onclick="filterTasks('нове')" id="filter-new">Нові</button>
-                    <button class="btn-primary-custom btn-sm" style="background:#fef3c7;color:#92400e" onclick="filterTasks('в_процесі')" id="filter-prog">В роботі</button>
-                </div>
-            </div>
-            <div class="row g-3" id="tasks-grid">
-                <div class="col-12 text-center py-5"><div class="spinner"></div></div>
-            </div>
-        </div>
-
-        <!-- РОЯЛТІ (АДМІН) -->
-        <div id="royalty" class="view-section">
-            <div class="page-header">
-                <h2><i class="fa-solid fa-coins me-2 text-primary"></i>Розрахунок роялті</h2>
-                <p>Фінансові показники партнерів-франчайзі та нараховані виплати</p>
-            </div>
-            <div class="row g-3" id="royalty-grid">
-                <div class="col-12 text-center py-5"><div class="spinner"></div></div>
-            </div>
-        </div>
-
-        <!-- КОРИСТУВАЧІ (АДМІН) -->
         <div id="users" class="view-section">
-            <div class="page-header">
-                <h2><i class="fa-solid fa-users me-2 text-primary"></i>Користувачі системи</h2>
-                <p>Управління акаунтами адмінів, техніків та франчайзі</p>
-            </div>
-            <div class="content-card">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead><tr><th>Ім'я</th><th>Роль</th><th>Email</th><th>Телефон</th><th>Дата реєстрації</th></tr></thead>
-                        <tbody id="users-table"><tr><td colspan="5" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
-                    </table>
-                </div>
-            </div>
+            <h2>Керування Користувачами</h2>
+            <div class="card shadow-sm"><table class="table mb-0"><thead><tr><th>Ім'я</th><th>Email</th><th>Роль</th><th>Статус</th><th>Дії</th></tr></thead><tbody id="users-table"></tbody></table></div>
         </div>
 
-        <!-- ТЕЛЕМЕТРІЯ (АДМІН) -->
-        <div id="telemetry" class="view-section">
-            <div class="page-header">
-                <h2><i class="fa-solid fa-signal me-2 text-primary"></i>Журнал телеметрії</h2>
-                <p>Всі IoT-сигнали від кавових апаратів</p>
-            </div>
-            <div class="content-card">
-                <div class="card-header-custom">
-                    <h5>Лише апарати з помилками</h5>
-                    <button class="btn-primary-custom btn-sm" onclick="simulateTelemetry()">
-                        <i class="fa-solid fa-play"></i> Симулювати IoT-сигнал
-                    </button>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead><tr><th>Апарат</th><th>Помилка</th><th>Вода %</th><th>Кава %</th><th>Стакани</th><th>Час</th></tr></thead>
-                        <tbody id="telemetry-table"><tr><td colspan="6" class="text-center py-4 text-muted">Завантаження...</td></tr></tbody>
-                    </table>
-                </div>
-            </div>
+        <div id="machine-requests" class="view-section">
+            <h2>Запити на апарати</h2>
+            <div class="card shadow-sm"><table class="table mb-0"><thead><tr><th>Франчайзі</th><th>Модель</th><th>Дата</th><th>Статус</th></tr></thead><tbody id="requests-table"></tbody></table></div>
         </div>
 
-    </div><!-- /main-content -->
-</div><!-- /app-screen -->
+        <div id="orders" class="view-section"><h2>Замовлення</h2><div id="orders-list"></div></div>
+    </div>
+</div>
 
-<!-- TOAST -->
 <div class="toast-container" id="toast-container"></div>
 
 <script>
-const API_URL = 'http://localhost:5000/api';
-let allTasks = [];
-let cart = {};
-let allIngredients = [];
-let ordersChartInstance = null;
+const API = 'http://localhost:5000/api';
 
-// ==========================================
-// АВТОРИЗАЦІЯ
-// ==========================================
+function toggleAuth(isReg) {
+    document.getElementById('login-form').classList.toggle('d-none', isReg);
+    document.getElementById('register-form').classList.toggle('d-none', !isReg);
+    document.getElementById('auth-title').innerText = isReg ? 'Реєстрація Франшизи' : 'CoffeeNet ERP';
+}
+
 async function login() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    const errorDiv = document.getElementById('login-error');
-    const btn = document.getElementById('login-btn');
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner me-2"></span>Вхід...';
-
     try {
-        const res = await fetch(`${API_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
+        const res = await fetch(`${API}/login`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({email, password}) });
         const data = await res.json();
-
-        if (res.ok) {
-            localStorage.setItem('crm_token', data.token);
-            localStorage.setItem('crm_role', data.role);
-            localStorage.setItem('crm_name', data.name);
-            localStorage.setItem('crm_id', data.id);
-            errorDiv.classList.add('d-none');
-            checkAuth();
-        } else {
-            errorDiv.innerText = data.error;
-            errorDiv.classList.remove('d-none');
-        }
-    } catch {
-        errorDiv.innerText = "Помилка зв'язку з сервером. Переконайтесь, що сервер запущено.";
-        errorDiv.classList.remove('d-none');
-    }
-
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-right-to-bracket me-2"></i>Увійти в систему';
+        if (!res.ok) throw new Error(data.error);
+        localStorage.setItem('token', data.token); localStorage.setItem('role', data.role); localStorage.setItem('name', data.name);
+        initApp();
+    } catch (e) { alert(e.message); }
 }
 
-function logout() {
-    localStorage.clear();
-    checkAuth();
-}
-
-function checkAuth() {
-    const token = localStorage.getItem('crm_token');
-    if (token) {
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('app-screen').style.display = 'block';
-        setupUserUI();
-        loadDashboard();
-    } else {
-        document.getElementById('login-screen').style.display = 'flex';
-        document.getElementById('app-screen').style.display = 'none';
-    }
-}
-
-function setupUserUI() {
-    const name = localStorage.getItem('crm_name');
-    const role = localStorage.getItem('crm_role');
-
-    document.getElementById('current-user-name').innerText = name;
-    document.getElementById('user-avatar').innerText = name.charAt(0).toUpperCase();
-
-    const roleEl = document.getElementById('current-user-role');
-    const roleMap = { admin: ['АДМІН', 'role-admin'], franchisee: ['ФРАНЧАЙЗІ', 'role-franchisee'], technician: ['ТЕХНІК', 'role-technician'] };
-    const [label, cls] = roleMap[role] || ['–', ''];
-    roleEl.innerText = label;
-    roleEl.className = `role-badge ${cls}`;
-
-    buildNav(role);
-}
-
-function buildNav(role) {
-    const nav = document.getElementById('nav-items');
-    const items = {
-        admin: [
-            { section: 'Огляд' },
-            { id: 'dashboard', icon: 'fa-chart-pie', label: 'Дашборд' },
-            { section: 'Обладнання' },
-            { id: 'machines', icon: 'fa-server', label: 'Кавомашини' },
-            { id: 'telemetry', icon: 'fa-signal', label: 'Телеметрія' },
-            { id: 'maintenance', icon: 'fa-wrench', label: 'Завдання техніків' },
-            { section: 'Бізнес' },
-            { id: 'orders', icon: 'fa-cart-shopping', label: 'Замовлення' },
-            { id: 'royalty', icon: 'fa-coins', label: 'Роялті' },
-            { section: 'Адміністрування' },
-            { id: 'users', icon: 'fa-users', label: 'Користувачі' },
-        ],
-        franchisee: [
-            { section: 'Огляд' },
-            { id: 'dashboard', icon: 'fa-chart-pie', label: 'Дашборд' },
-            { id: 'machines', icon: 'fa-server', label: 'Мої апарати' },
-            { section: 'Замовлення' },
-            { id: 'orders', icon: 'fa-cart-shopping', label: 'Мої замовлення' },
-            { id: 'ingredients', icon: 'fa-box-open', label: 'Замовити товари' },
-        ],
-        technician: [
-            { section: 'Робоче місце' },
-            { id: 'dashboard', icon: 'fa-chart-pie', label: 'Огляд' },
-            { id: 'maintenance', icon: 'fa-wrench', label: 'Мої завдання' },
-            { id: 'machines', icon: 'fa-server', label: 'Апарати' },
-        ]
-    };
-
-    nav.innerHTML = (items[role] || []).map(item => {
-        if (item.section) return `<div class="nav-section">${item.section}</div>`;
-        return `<button class="nav-item ${item.id === 'dashboard' ? 'active' : ''}" 
-                    id="nav-${item.id}" onclick="switchView('${item.id}', this)">
-                    <i class="fa-solid ${item.icon}"></i> ${item.label}
-                </button>`;
-    }).join('');
-}
-
-// ==========================================
-// НАВІГАЦІЯ
-// ==========================================
-function switchView(viewId, element) {
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    if (element) element.classList.add('active');
-    const navBtn = document.getElementById('nav-' + viewId);
-    if (navBtn) navBtn.classList.add('active');
-
-    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-    const section = document.getElementById(viewId);
-    if (section) section.classList.add('active');
-
-    const loaders = {
-        dashboard: loadDashboard,
-        machines: loadMachines,
-        orders: loadOrders,
-        ingredients: loadIngredients,
-        maintenance: loadMaintenance,
-        royalty: loadRoyalty,
-        users: loadUsers,
-        telemetry: loadTelemetry,
-    };
-    if (loaders[viewId]) loaders[viewId]();
-}
-
-// ==========================================
-// FETCH З ТОКЕНОМ
-// ==========================================
-async function fetchWithAuth(url, options = {}) {
-    const token = localStorage.getItem('crm_token');
-    const res = await fetch(url, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            ...(options.headers || {})
-        }
-    });
-    if (res.status === 401 || res.status === 403) { logout(); throw new Error("Unauthorized"); }
-    return res.json();
-}
-
-// ==========================================
-// ДАШБОРД
-// ==========================================
-async function loadDashboard() {
+async function register() {
+    const payload = { name: document.getElementById('reg-name').value, email: document.getElementById('reg-email').value, phone: document.getElementById('reg-phone').value, password: document.getElementById('reg-password').value, role: 'franchisee' };
     try {
-        const stats = await fetchWithAuth(`${API_URL}/dashboard/stats`);
-        document.getElementById('stat-machines').innerText = stats.machinesCount;
-        document.getElementById('stat-errors').innerText = stats.errorsCount;
-        document.getElementById('stat-users').innerText = stats.usersCount;
-        document.getElementById('stat-tasks').innerText = stats.pendingTasks;
-        document.getElementById('stat-revenue').innerText = (stats.ordersTotal || 0).toLocaleString('uk-UA');
-
-        const errors = await fetchWithAuth(`${API_URL}/telemetry/errors`);
-        document.getElementById('error-count-badge').innerText = errors.length;
-
-        const tbody = document.getElementById('errors-table');
-        if (!errors.length) {
-            tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-check-circle text-success" style="font-size:2rem;opacity:1"></i><p class="mt-2 mb-0">Помилок не виявлено!</p></div></td></tr>';
-        } else {
-            tbody.innerHTML = errors.slice(0, 10).map(e => `
-                <tr>
-                    <td><code class="text-primary">${e.machine_id?.toString().slice(-6)}</code></td>
-                    <td><span class="status-badge status-error"><i class="fa-solid fa-circle-exclamation"></i>${e.error_code || 'ERR'}</span></td>
-                    <td>
-                        <small>${sensorBar(e.sensors?.water_level_percent, '💧')} ${sensorBar(e.sensors?.coffee_beans_percent, '☕')} ${e.sensors?.cups_count || 0} шт.</small>
-                    </td>
-                    <td class="text-muted small">${formatDate(e.timestamp)}</td>
-                </tr>
-            `).join('');
-        }
-
-        renderOrdersChart();
-    } catch (err) { console.error(err); }
+        const res = await fetch(`${API}/register`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        alert(data.message); toggleAuth(false);
+    } catch (e) { alert(e.message); }
 }
 
-function sensorBar(pct, icon) {
-    const p = Number(pct) || 0;
-    const cls = p < 15 ? 'text-danger' : p < 30 ? 'text-warning' : 'text-success';
-    return `<span class="${cls}">${icon}${p}%</span>`;
+function initApp() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    const role = localStorage.getItem('role');
+    document.getElementById('user-info').innerText = `${localStorage.getItem('name')} (${role})`;
+    let nav = `<button class="nav-item active" onclick="switchView('dashboard')"><i class="fa-solid fa-house"></i> Головна</button><button class="nav-item" onclick="switchView('machines')"><i class="fa-solid fa-server"></i> Апарати</button>`;
+    if (role === 'admin') { nav += `<button class="nav-item" onclick="switchView('users')"><i class="fa-solid fa-users"></i> Користувачі</button><button class="nav-item" onclick="switchView('machine-requests')"><i class="fa-solid fa-clipboard-list"></i> Запити</button>`; }
+    nav += `<button class="nav-item" onclick="switchView('orders')"><i class="fa-solid fa-cart-shopping"></i> Замовлення</button>`;
+    document.getElementById('nav-items').innerHTML = nav;
+    switchView('dashboard');
 }
 
-async function renderOrdersChart() {
-    try {
-        const orders = await fetchWithAuth(`${API_URL}/orders`);
-        const statusCount = {};
-        orders.forEach(o => { statusCount[o.status] = (statusCount[o.status] || 0) + 1; });
-
-        if (ordersChartInstance) ordersChartInstance.destroy();
-        const ctx = document.getElementById('ordersChart').getContext('2d');
-        ordersChartInstance = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: Object.keys(statusCount),
-                datasets: [{ data: Object.values(statusCount), backgroundColor: ['#2563eb','#10b981','#f59e0b','#ef4444','#7c3aed'] }]
-            },
-            options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }, cutout: '65%' }
-        });
-    } catch {}
+async function switchView(v) {
+    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+    const target = document.getElementById(v);
+    if (target) target.classList.add('active');
+    if (v === 'users') loadUsers();
+    if (v === 'machines') loadMachines();
+    if (v === 'machine-requests') loadRequests();
 }
 
-// ==========================================
-// КАВОМАШИНИ
-// ==========================================
-async function loadMachines() {
-    const grid = document.getElementById('machines-grid');
-    try {
-        const machines = await fetchWithAuth(`${API_URL}/machines`);
-        if (!machines.length) {
-            grid.innerHTML = '<div class="col-12"><div class="empty-state"><i class="fa-solid fa-server"></i><p>Апаратів не знайдено</p></div></div>';
-            return;
-        }
-        grid.innerHTML = machines.map(m => {
-            const statusCls = m.status === 'active' ? 'status-active' : m.status === 'warning' ? 'status-warning' : 'status-error';
-            const statusLabel = m.status === 'active' ? 'Активний' : m.status === 'warning' ? 'Попередження' : 'Помилка';
-            return `
-            <div class="col-md-6 col-xl-4">
-                <div class="machine-card">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <div class="machine-sn">${m.serial_number}</div>
-                            <div class="machine-model">${m.model}</div>
-                        </div>
-                        <span class="status-badge ${statusCls}">${statusLabel}</span>
-                    </div>
-                    <div class="machine-location"><i class="fa-solid fa-location-dot me-1 text-muted"></i>${m.location?.city || ''}, ${m.location?.address || ''}</div>
-                    <div class="machine-location mb-3"><i class="fa-solid fa-building me-1 text-muted"></i>${m.location?.place_type || ''}</div>
-                    <div class="mb-1">
-                        <div class="d-flex justify-content-between small"><span>💧 Вода</span><span id="water-${m._id}">...</span></div>
-                        <div class="sensor-bar"><div class="sensor-fill bg-primary" id="wb-${m._id}" style="width:0%"></div></div>
-                    </div>
-                    <div class="mb-1">
-                        <div class="d-flex justify-content-between small"><span>☕ Кава</span><span id="coffee-${m._id}">...</span></div>
-                        <div class="sensor-bar"><div class="sensor-fill bg-warning" id="cb-${m._id}" style="width:0%"></div></div>
-                    </div>
-                    <div>
-                        <div class="d-flex justify-content-between small"><span>🥤 Стакани</span><span id="cups-${m._id}">...</span></div>
-                        <div class="sensor-bar"><div class="sensor-fill bg-success" id="cpb-${m._id}" style="width:0%"></div></div>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-
-        // Завантажуємо телеметрію для кожної машини
-        machines.forEach(async m => {
-            try {
-                const logs = await fetchWithAuth(`${API_URL}/machines/${m._id}/telemetry`);
-                if (logs && logs[0]) {
-                    const s = logs[0].sensors;
-                    setMachineSensor(m._id, 'water', s.water_level_percent);
-                    setMachineSensor(m._id, 'coffee', s.coffee_beans_percent);
-                    setMachineSensor(m._id, 'cups', s.cups_count, true);
-                }
-            } catch {}
-        });
-    } catch (err) { grid.innerHTML = '<div class="col-12 text-center text-danger">Помилка завантаження</div>'; }
-}
-
-function setMachineSensor(id, type, value, isCups = false) {
-    const pct = isCups ? Math.min(100, (value / 200) * 100) : value;
-    const label = isCups ? `${value} шт.` : `${value}%`;
-    const color = value < 15 ? '#ef4444' : value < 30 ? '#f59e0b' : '#10b981';
-    const map = { water: 'wb', coffee: 'cb', cups: 'cpb' };
-    const labelMap = { water: 'water', coffee: 'coffee', cups: 'cups' };
-    const bar = document.getElementById(`${map[type]}-${id}`);
-    const lbl = document.getElementById(`${labelMap[type]}-${id}`);
-    if (bar) { bar.style.width = `${pct}%`; bar.style.background = color; }
-    if (lbl) { lbl.innerText = label; lbl.style.color = color; }
-}
-
-// ==========================================
-// ЗАМОВЛЕННЯ
-// ==========================================
-async function loadOrders() {
-    const role = localStorage.getItem('crm_role');
-    // Тільки адмін може міняти статус
-    document.getElementById('btn-new-order').style.display = (role === 'franchisee') ? 'inline-flex' : 'none';
-
-    try {
-        const orders = await fetchWithAuth(`${API_URL}/orders`);
-        const tbody = document.getElementById('orders-table');
-        if (!orders.length) {
-            tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-cart-shopping"></i><p>Замовлень ще немає</p></div></td></tr>';
-            return;
-        }
-        const statusMap = {
-            'прийнято_в_обробку': 'status-new',
-            'відправлено': 'status-sent',
-            'доставлено': 'status-done',
-            'скасовано': 'status-error'
-        };
-        tbody.innerHTML = orders.map(o => `
-            <tr>
-                <td><code class="text-muted">#${o._id?.toString().slice(-6)}</code></td>
-                <td>${formatDate(o.order_date)}</td>
-                <td class="fw-bold">${(o.total_price || 0).toLocaleString('uk-UA')} ₴</td>
-                <td><span class="status-badge ${statusMap[o.status] || ''}">${o.status}</span></td>
-                <td>
-                    ${role === 'admin' ? `
-                    <select class="form-select form-select-sm" style="font-size:0.75rem;width:auto;display:inline-block"
-                        onchange="updateOrderStatus('${o._id}', this.value)">
-                        <option>прийнято_в_обробку</option>
-                        <option ${o.status==='відправлено'?'selected':''}>відправлено</option>
-                        <option ${o.status==='доставлено'?'selected':''}>доставлено</option>
-                        <option ${o.status==='скасовано'?'selected':''}>скасовано</option>
-                    </select>` : '–'}
-                </td>
-            </tr>
-        `).join('');
-    } catch (err) { console.error(err); }
-}
-
-async function updateOrderStatus(orderId, status) {
-    try {
-        await fetchWithAuth(`${API_URL}/orders/${orderId}/status`, {
-            method: 'PATCH', body: JSON.stringify({ status })
-        });
-        toast('Статус замовлення оновлено', 'success');
-    } catch { toast('Помилка оновлення', 'error'); }
-}
-
-// ==========================================
-// ІНГРЕДІЄНТИ (КАТАЛОГ + КОШИК)
-// ==========================================
-async function loadIngredients() {
-    try {
-        allIngredients = await fetchWithAuth(`${API_URL}/ingredients`);
-        renderIngredients();
-        renderCart();
-    } catch (err) { console.error(err); }
-}
-
-function renderIngredients() {
-    const list = document.getElementById('ingredients-list');
-    list.innerHTML = allIngredients.map(ing => `
-        <div class="ingredient-row">
-            <div>
-                <div class="fw-semibold">${ing.name}</div>
-                <small class="text-muted">${ing.price_per_unit} ₴ / ${ing.unit} | На складі: ${ing.stock} ${ing.unit}</small>
-            </div>
-            <div class="qty-control">
-                <button class="qty-btn" onclick="changeQty('${ing._id}', -1)">−</button>
-                <input class="qty-input" type="number" id="qty-${ing._id}" value="${cart[ing._id]?.qty || 0}" min="0"
-                    onchange="setQty('${ing._id}', this.value)">
-                <button class="qty-btn" onclick="changeQty('${ing._id}', 1)">+</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function changeQty(id, delta) {
-    const ing = allIngredients.find(i => i._id === id);
-    const cur = cart[id]?.qty || 0;
-    const newQty = Math.max(0, cur + delta);
-    if (newQty === 0) { delete cart[id]; } else {
-        cart[id] = { qty: newQty, price: ing.price_per_unit, name: ing.name, unit: ing.unit };
-    }
-    const inp = document.getElementById(`qty-${id}`);
-    if (inp) inp.value = newQty;
-    renderCart();
-}
-
-function setQty(id, val) {
-    const ing = allIngredients.find(i => i._id === id);
-    const newQty = Math.max(0, parseInt(val) || 0);
-    if (newQty === 0) delete cart[id];
-    else cart[id] = { qty: newQty, price: ing.price_per_unit, name: ing.name, unit: ing.unit };
-    renderCart();
-}
-
-function renderCart() {
-    const items = Object.entries(cart);
-    const cartDiv = document.getElementById('cart-items');
-    const totalEl = document.getElementById('cart-total');
-
-    if (!items.length) {
-        cartDiv.innerHTML = '<p class="text-muted small text-center py-3">Кошик порожній</p>';
-        totalEl.innerText = '0 ₴';
-        return;
-    }
-    let total = 0;
-    cartDiv.innerHTML = items.map(([id, item]) => {
-        const subtotal = item.qty * item.price;
-        total += subtotal;
-        return `<div class="d-flex justify-content-between small mb-2 align-items-center">
-            <span>${item.name} × ${item.qty} ${item.unit}</span>
-            <span class="fw-bold">${subtotal.toFixed(2)} ₴</span>
-        </div>`;
-    }).join('');
-    totalEl.innerText = total.toFixed(2) + ' ₴';
-}
-
-async function submitOrder() {
-    const items = Object.entries(cart);
-    if (!items.length) { toast('Додайте товари до кошика', 'error'); return; }
-
-    const total = items.reduce((s, [id, i]) => s + i.qty * i.price, 0);
-    const orderItems = items.map(([id, item]) => ({
-        ingredient_id: id,
-        quantity: item.qty,
-        price: item.price
-    }));
-
-    try {
-        await fetchWithAuth(`${API_URL}/orders`, {
-            method: 'POST',
-            body: JSON.stringify({ items: orderItems, total_price: total })
-        });
-        cart = {};
-        renderCart();
-        renderIngredients();
-        toast('Замовлення успішно оформлено!', 'success');
-        setTimeout(() => switchView('orders', document.getElementById('nav-orders')), 1500);
-    } catch { toast('Помилка оформлення замовлення', 'error'); }
-}
-
-// ==========================================
-// ЗАВДАННЯ ТЕХНІКІВ
-// ==========================================
-async function loadMaintenance() {
-    const grid = document.getElementById('tasks-grid');
-    try {
-        allTasks = await fetchWithAuth(`${API_URL}/maintenance-tasks`);
-        renderTasks(allTasks);
-    } catch { grid.innerHTML = '<div class="col-12 text-center text-danger">Помилка завантаження</div>'; }
-}
-
-function filterTasks(status) {
-    const filtered = status === 'all' ? allTasks : allTasks.filter(t => t.status === status);
-    renderTasks(filtered);
-}
-
-function renderTasks(tasks) {
-    const grid = document.getElementById('tasks-grid');
-    const role = localStorage.getItem('crm_role');
-
-    if (!tasks.length) {
-        grid.innerHTML = '<div class="col-12"><div class="empty-state"><i class="fa-solid fa-check-circle" style="color:#10b981;opacity:1;font-size:2.5rem"></i><p class="mt-2">Всі завдання виконані!</p></div></div>';
-        return;
-    }
-    const statusCls = { 'нове': 'priority-new', 'в_процесі': 'priority-progress', 'виконано': 'priority-done', 'скасовано': '' };
-    const statusBadge = { 'нове': 'status-new', 'в_процесі': 'status-progress', 'виконано': 'status-done', 'скасовано': 'status-error' };
-
-    grid.innerHTML = tasks.map(task => `
-        <div class="col-md-6 col-xl-4">
-            <div class="task-card ${statusCls[task.status] || ''}">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <span class="status-badge ${statusBadge[task.status] || ''}">
-                        <i class="fa-solid ${task.status === 'виконано' ? 'fa-check' : task.status === 'нове' ? 'fa-circle-dot' : 'fa-spinner'}"></i>
-                        ${task.status}
-                    </span>
-                    <span class="text-muted small">${formatDate(task.assigned_at)}</span>
-                </div>
-                <div class="fw-bold mb-1">${task.machine?.model || 'Апарат'}</div>
-                <div class="text-muted small mb-1"><i class="fa-solid fa-location-dot me-1"></i>${task.machine?.location?.city || ''} – ${task.machine?.location?.address || ''}</div>
-                <div class="small mb-3" style="color:#4a5568">${task.description}</div>
-                ${task.status !== 'виконано' && task.status !== 'скасовано' ? `
-                <div class="d-flex gap-2">
-                    ${task.status === 'нове' ? `<button class="btn-sm-action btn-warning-sm" onclick="updateTask('${task._id}', 'в_процесі')"><i class="fa-solid fa-play me-1"></i>Взяти в роботу</button>` : ''}
-                    ${task.status === 'в_процесі' || role === 'admin' ? `<button class="btn-sm-action btn-success-sm" onclick="updateTask('${task._id}', 'виконано')"><i class="fa-solid fa-check me-1"></i>Виконано</button>` : ''}
-                </div>` : ''}
-            </div>
-        </div>
-    `).join('');
-}
-
-async function updateTask(taskId, status) {
-    try {
-        await fetchWithAuth(`${API_URL}/maintenance-tasks/${taskId}`, {
-            method: 'PATCH', body: JSON.stringify({ status })
-        });
-        toast(status === 'виконано' ? '✅ Завдання виконано!' : '▶ Завдання взято в роботу', 'success');
-        loadMaintenance();
-    } catch { toast('Помилка оновлення', 'error'); }
-}
-
-// ==========================================
-// РОЯЛТІ
-// ==========================================
-async function loadRoyalty() {
-    const grid = document.getElementById('royalty-grid');
-    try {
-        const data = await fetchWithAuth(`${API_URL}/royalty`);
-        if (!data.length) {
-            grid.innerHTML = '<div class="col-12"><div class="empty-state"><i class="fa-solid fa-coins"></i><p>Немає даних</p></div></div>';
-            return;
-        }
-        grid.innerHTML = data.map(r => `
-            <div class="col-md-6 col-xl-4">
-                <div class="royalty-card">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <div class="royalty-name">${r.name}</div>
-                            <small class="text-muted">${r.email}</small>
-                        </div>
-                        <span class="status-badge ${r.balance > 0 ? 'status-error' : 'status-done'}">
-                            ${r.balance > 0 ? 'Борг' : 'Оплачено'}
-                        </span>
-                    </div>
-                    <div class="row g-2 text-center mb-3">
-                        <div class="col-4">
-                            <div class="small text-muted">Виручка</div>
-                            <div class="fw-bold">${r.totalRevenue.toLocaleString('uk-UA')} ₴</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="small text-muted">Роялті 8%</div>
-                            <div class="royalty-amount" style="font-size:1.1rem">${r.royaltyAmount.toLocaleString('uk-UA')} ₴</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="small text-muted">Замовлень</div>
-                            <div class="fw-bold">${r.ordersCount}</div>
-                        </div>
-                    </div>
-                    <div class="p-2 rounded" style="background:${r.balance > 0 ? '#fee2e2' : '#d1fae5'}">
-                        <div class="d-flex justify-content-between small">
-                            <span>Залишок до сплати:</span>
-                            <strong style="color:${r.balance > 0 ? '#991b1b' : '#065f46'}">${r.balance.toLocaleString('uk-UA')} ₴</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-    } catch (err) { grid.innerHTML = '<div class="col-12 text-center text-danger">Помилка завантаження роялті</div>'; }
-}
-
-// ==========================================
-// КОРИСТУВАЧІ
-// ==========================================
 async function loadUsers() {
-    try {
-        const users = await fetchWithAuth(`${API_URL}/users`);
-        const roleMap = { admin: '👑 Адмін', franchisee: '🏪 Франчайзі', technician: '🔧 Технік' };
-        const tbody = document.getElementById('users-table');
-        tbody.innerHTML = users.map(u => `
-            <tr>
-                <td class="fw-semibold">${u.name}</td>
-                <td><span class="status-badge ${u.role === 'admin' ? 'status-sent' : u.role === 'franchisee' ? 'status-new' : 'status-done'}">${roleMap[u.role] || u.role}</span></td>
-                <td>${u.email}</td>
-                <td>${u.phone || '–'}</td>
-                <td class="text-muted small">${u.created_at ? formatDate(u.created_at) : '–'}</td>
-            </tr>
-        `).join('');
-    } catch (err) { console.error(err); }
+    const res = await fetch(`${API}/users`, { headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`} });
+    const users = await res.json();
+    document.getElementById('users-table').innerHTML = users.map(u => `
+        <tr>
+            <td>${u.name}</td><td>${u.email}</td><td>${u.role}</td>
+            <td><span class="status-badge status-${u.status}">${u.status}</span></td>
+            <td>
+                ${u.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="updateUserStatus(${u.id}, 'approved')">Схвалити</button>` : ''}
+                <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">Видалити</button>
+            </td>
+        </tr>`).join('');
 }
 
-// ==========================================
-// ТЕЛЕМЕТРІЯ
-// ==========================================
-async function loadTelemetry() {
-    try {
-        const errors = await fetchWithAuth(`${API_URL}/telemetry/errors`);
-        const tbody = document.getElementById('telemetry-table');
-        if (!errors.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">Помилок не знайдено</td></tr>';
-            return;
-        }
-        tbody.innerHTML = errors.map(e => `
-            <tr>
-                <td><code>${e.machine_id?.toString().slice(-6)}</code></td>
-                <td><span class="status-badge status-error">${e.error_code || 'ERR'}</span></td>
-                <td style="color:${(e.sensors?.water_level_percent||0)<15?'#ef4444':'#10b981'}">${e.sensors?.water_level_percent || 0}%</td>
-                <td style="color:${(e.sensors?.coffee_beans_percent||0)<15?'#ef4444':'#10b981'}">${e.sensors?.coffee_beans_percent || 0}%</td>
-                <td style="color:${(e.sensors?.cups_count||0)<10?'#ef4444':'#10b981'}">${e.sensors?.cups_count || 0}</td>
-                <td class="text-muted small">${formatDate(e.timestamp)}</td>
-            </tr>
-        `).join('');
-    } catch (err) { console.error(err); }
+async function updateUserStatus(id, status) {
+    await fetch(`${API}/users/${id}/status`, { method: 'PATCH', headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json'}, body: JSON.stringify({status}) });
+    loadUsers();
 }
 
-// Симуляція IoT-сигналу (для демо / тестування)
-async function simulateTelemetry() {
-    try {
-        const machines = await fetchWithAuth(`${API_URL}/machines`);
-        if (!machines.length) { toast('Немає апаратів для симуляції', 'error'); return; }
-        const machine = machines[Math.floor(Math.random() * machines.length)];
-
-        const payload = {
-            water_level_percent: Math.floor(Math.random() * 25),
-            coffee_beans_percent: Math.floor(Math.random() * 20),
-            cups_count: Math.floor(Math.random() * 15),
-            has_error: true,
-            error_code: ['ERR_LOW_WATER', 'ERR_LOW_CUPS', 'ERR_LOW_COFFEE'][Math.floor(Math.random() * 3)]
-        };
-
-        await fetch(`${API_URL}/telemetry/${machine._id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        toast(`IoT сигнал від ${machine.model} відправлено!`, 'success');
-        loadTelemetry();
-    } catch { toast('Помилка симуляції', 'error'); }
+async function deleteUser(id) {
+    if (confirm('Видалити користувача?')) {
+        await fetch(`${API}/users/${id}`, { method: 'DELETE', headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`} });
+        loadUsers();
+    }
 }
 
-// ==========================================
-// УТИЛІТИ
-// ==========================================
-function formatDate(dt) {
-    if (!dt) return '–';
-    return new Date(dt).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+async function loadMachines() {
+    const role = localStorage.getItem('role');
+    const actions = document.getElementById('machine-actions');
+    actions.innerHTML = role === 'admin' ? '<button class="btn btn-primary" onclick="addMachine()">+ Додати апарат</button>' : '<button class="btn btn-warning" onclick="orderMachine()">Замовити апарат</button>';
+    const res = await fetch(`${API}/machines`, { headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`} });
+    const data = await res.json();
+    document.getElementById('machines-grid').innerHTML = data.map(m => `<div class="col-md-4"><div class="card p-3 shadow-sm"><strong>${m.model}</strong><br><small>${m.serial_number}</small><br><span class="status-badge status-active mt-2">${m.status}</span></div></div>`).join('');
 }
 
-function toast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    const el = document.createElement('div');
-    el.className = `toast-msg ${type}`;
-    el.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : 'fa-circle-exclamation'}"></i> ${message}`;
-    container.appendChild(el);
-    setTimeout(() => el.remove(), 3500);
+async function orderMachine() {
+    const model = prompt("Яку модель апарату бажаєте замовити?");
+    if (!model) return;
+    await fetch(`${API}/machine-requests`, { method: 'POST', headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json'}, body: JSON.stringify({model}) });
+    alert("Запит надіслано адміну!");
 }
 
-// ЗАПУСК
-checkAuth();
+async function loadRequests() {
+    const res = await fetch(`${API}/machine-requests`, { headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`} });
+    const data = await res.json();
+    document.getElementById('requests-table').innerHTML = data.map(r => `<tr><td>${r.franchisee_name}</td><td>${r.model_requested}</td><td>${new Date(r.created_at).toLocaleDateString()}</td><td>${r.status}</td></tr>`).join('');
+}
+
+function logout() { localStorage.clear(); location.reload(); }
+initApp();
 </script>
 </body>
 </html>
