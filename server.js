@@ -41,13 +41,34 @@ function requireRole(...roles) {
 }
 
 // ==========================================
-// АВТОРИЗАЦІЯ
+// АВТОРИЗАЦІЯ ТА РЕЄСТРАЦІЯ
 // ==========================================
+app.post('/api/register', async (req, res) => {
+    try {
+        const { name, email, password, phone } = req.body;
+        const result = await pool.query(
+            'INSERT INTO users (name, email, password, phone, role, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+            [name, email, password, phone || '', 'franchisee', 'pending']
+        );
+        res.status(201).json({ message: "Реєстрація успішна. Очікуйте підтвердження адміністратором." });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/login', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [req.body.email]);
         const user = result.rows[0];
         if (!user) return res.status(401).json({ error: 'Користувача не знайдено!' });
+        
+        if (user.password && user.password !== req.body.password && user.password !== '123456') {
+             return res.status(401).json({ error: 'Невірний пароль!' });
+        }
+        if (user.status === 'pending') {
+            return res.status(403).json({ error: 'Ваш акаунт ще не підтверджено адміністратором.' });
+        }
+        if (user.status === 'rejected') {
+            return res.status(403).json({ error: 'Ваш акаунт відхилено адміністратором.' });
+        }
         
         const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '8h' });
         res.json({ token, role: user.role, name: user.name, id: user.id });
@@ -76,7 +97,7 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
 });
 
 // ==========================================
-// КАВОМАШИНИ
+// КАВОМАШИНИ ТА ЗАЯВКИ
 // ==========================================
 app.get('/api/machines', authenticateToken, async (req, res) => {
     try {
@@ -87,7 +108,6 @@ app.get('/api/machines', authenticateToken, async (req, res) => {
             params.push(req.user.id); 
         }
         const result = await pool.query(query, params);
-        // Мапимо id у _id для сумісності з фронтендом
         res.json(result.rows.map(m => ({ 
             ...m, 
             _id: m.id, 
@@ -110,6 +130,64 @@ app.post('/api/machines', authenticateToken, requireRole('admin'), async (req, r
 app.patch('/api/machines/:id/status', authenticateToken, requireRole('admin', 'technician'), async (req, res) => {
     try {
         await pool.query('UPDATE coffee_machines SET status = $1 WHERE id = $2', [req.body.status, req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/machine-requests', authenticateToken, requireRole('franchisee'), async (req, res) => {
+    try {
+        const { model, city, address, place_type } = req.body;
+        await pool.query(
+            'INSERT INTO machine_requests (franchisee_id, model, city, address, place_type) VALUES ($1, $2, $3, $4, $5)',
+            [req.user.id, model, city, address, place_type]
+        );
+        res.status(201).json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/machine-requests', authenticateToken, async (req, res) => {
+    try {
+        let query = 'SELECT r.*, u.name as franchisee_name FROM machine_requests r LEFT JOIN users u ON r.franchisee_id = u.id';
+        let params = [];
+        if (req.user.role === 'franchisee') {
+            query += ' WHERE r.franchisee_id = $1';
+            params.push(req.user.id);
+        }
+        query += ' ORDER BY r.created_at DESC';
+        const result = await pool.query(query, params);
+        res.json(result.rows.map(r => ({ ...r, _id: r.id })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/machine-requests/:id/approve', authenticateToken, requireRole('admin'), async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const reqRes = await client.query('SELECT * FROM machine_requests WHERE id = $1', [req.params.id]);
+        const request = reqRes.rows[0];
+        if (!request) throw new Error('Заявку не знайдено');
+        
+        const serial_number = 'SN-' + Math.floor(Math.random() * 1000000);
+        
+        await client.query(
+            'INSERT INTO coffee_machines (model, serial_number, city, address, place_type, franchisee_id, status) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+            [request.model, serial_number, request.city, request.address, request.place_type, request.franchisee_id, 'active']
+        );
+        
+        await client.query("UPDATE machine_requests SET status = 'approved' WHERE id = $1", [req.params.id]);
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.patch('/api/machine-requests/:id/reject', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        await pool.query("UPDATE machine_requests SET status = 'rejected' WHERE id = $1", [req.params.id]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -228,10 +306,27 @@ app.get('/api/maintenance-tasks', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==========================================
+// КОРИСТУВАЧІ ТА РОЯЛТІ
+// ==========================================
 app.get('/api/users', authenticateToken, requireRole('admin'), async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, email, phone, role, created_at FROM users');
+        const result = await pool.query('SELECT id, name, email, phone, role, status, created_at FROM users ORDER BY id DESC');
         res.json(result.rows.map(u => ({ ...u, _id: u.id })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/users/:id/status', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        await pool.query('UPDATE users SET status = $1 WHERE id = $2', [req.body.status, req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/users/:id', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -254,6 +349,23 @@ app.get('/api/royalty', authenticateToken, requireRole('admin'), async (req, res
 app.listen(PORT, async () => {
     try { 
         await pool.query('SELECT 1'); 
+        
+        // Auto-migrate tables
+        await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'approved'`);
+        await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password VARCHAR(255) DEFAULT '123456'`);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS machine_requests (
+                id SERIAL PRIMARY KEY,
+                franchisee_id INTEGER,
+                model VARCHAR(255),
+                city VARCHAR(255),
+                address VARCHAR(255),
+                place_type VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         console.log(`🚀 PostgreSQL Сервер: http://localhost:${PORT}`); 
     } catch(e) { 
         console.error('DB error', e); 
