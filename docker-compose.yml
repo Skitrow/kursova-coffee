@@ -7,20 +7,31 @@ services:
       - "5000:5000"
     environment:
       - PORT=5000
-      - MONGO_URI=mongodb://mongodb:27017/coffee_franchise_db
+      - DATABASE_URL=postgres://coffee_user:coffee_pass@postgres:5432/coffee_db
+      - DATABASE_URL_MIGRATIONS=postgres://coffee_user:coffee_pass@postgres:5432/coffee_db
       - JWT_SECRET=super_secret_rgr_key
     depends_on:
-      - mongodb
+      postgres:
+        condition: service_healthy
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
 
-  mongodb:
-    image: mongo:6.0
+  postgres:
+    image: postgres:15-alpine
     ports:
-      - "27017:27017"
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: coffee_user
+      POSTGRES_PASSWORD: coffee_pass
+      POSTGRES_DB: coffee_db
     volumes:
-      - mongo-data:/data/db
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coffee_user -d coffee_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  mongo-data:
+  pg-data:

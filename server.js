@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
+const { Pool } = require('pg');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -9,354 +9,255 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Роздача фронтенду (index.html)
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
+// Роздача фронтенду
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 
-// MongoDB URI: беремо з .env або використовуємо локальну БД з Docker
-const uri = process.env.MONGO_URI || "mongodb://mongodb:27017/coffee_franchise_db";
 const PORT = process.env.PORT || 5000;
 const SECRET_KEY = process.env.JWT_SECRET || "super_secret_rgr_key";
 
-const client = new MongoClient(uri);
+// Підключення до PostgreSQL
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL || "postgres://coffee_user:coffee_pass@localhost:5432/coffee_db"
+});
 
 // ==========================================
-// MIDDLEWARE: Перевірка JWT токена
+// MIDDLEWARE
 // ==========================================
 function authenticateToken(req, res, next) {
     const token = req.header('Authorization');
-    if (!token) return res.status(401).json({ error: "Доступ заборонено. Немає токена." });
-
+    if (!token) return res.status(401).json({ error: "Доступ заборонено." });
     jwt.verify(token.replace("Bearer ", ""), SECRET_KEY, (err, user) => {
-        if (err) return res.status(403).json({ error: "Недійсний або прострочений токен." });
+        if (err) return res.status(403).json({ error: "Недійсний токен." });
         req.user = user;
         next();
     });
 }
 
-// MIDDLEWARE: Перевірка ролі (один або більше дозволених ролей)
 function requireRole(...roles) {
     return (req, res, next) => {
-        if (!roles.includes(req.user.role)) {
-            return res.status(403).json({ error: `Доступ дозволений тільки для: ${roles.join(', ')}.` });
-        }
+        if (!roles.includes(req.user.role)) return res.status(403).json({ error: "Доступ заборонено." });
         next();
     };
 }
 
-async function startServer() {
+// ==========================================
+// АВТОРИЗАЦІЯ
+// ==========================================
+app.post('/api/login', async (req, res) => {
     try {
-        await client.connect();
-        console.log("✅ Підключено до MongoDB!");
-        const db = client.db("coffee_franchise_db");
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [req.body.email]);
+        const user = result.rows[0];
+        if (!user) return res.status(401).json({ error: 'Користувача не знайдено!' });
+        
+        const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, SECRET_KEY, { expiresIn: '8h' });
+        res.json({ token, role: user.role, name: user.name, id: user.id });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-        // ==========================================
-        // 1. АВТОРИЗАЦІЯ (LOGIN)
-        // ==========================================
-        app.post('/api/login', async (req, res) => {
-            const { email } = req.body;
+// ==========================================
+// ДАШБОРД
+// ==========================================
+app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
+    try {
+        const machinesCount = (await pool.query('SELECT COUNT(*) FROM coffee_machines')).rows[0].count;
+        const usersCount = (await pool.query('SELECT COUNT(*) FROM users')).rows[0].count;
+        const errorsCount = (await pool.query('SELECT COUNT(*) FROM telemetry_logs WHERE has_error = true')).rows[0].count;
+        const pendingTasks = (await pool.query("SELECT COUNT(*) FROM maintenance_tasks WHERE status != 'виконано'")).rows[0].count;
+        const ordersTotal = (await pool.query('SELECT SUM(total_price) FROM orders')).rows[0].sum || 0;
+        
+        res.json({ 
+            machinesCount: parseInt(machinesCount), 
+            usersCount: parseInt(usersCount), 
+            errorsCount: parseInt(errorsCount), 
+            pendingTasks: parseInt(pendingTasks), 
+            ordersTotal: parseFloat(ordersTotal) 
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-            const user = await db.collection('users').findOne({ email });
-            if (!user) {
-                return res.status(401).json({ error: 'Користувача з таким email не знайдено!' });
-            }
+// ==========================================
+// КАВОМАШИНИ
+// ==========================================
+app.get('/api/machines', authenticateToken, async (req, res) => {
+    try {
+        let query = 'SELECT * FROM coffee_machines';
+        let params = [];
+        if (req.user.role === 'franchisee') { 
+            query += ' WHERE franchisee_id = $1'; 
+            params.push(req.user.id); 
+        }
+        const result = await pool.query(query, params);
+        // Мапимо id у _id для сумісності з фронтендом
+        res.json(result.rows.map(m => ({ 
+            ...m, 
+            _id: m.id, 
+            location: { city: m.city, address: m.address, place_type: m.place_type } 
+        })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-            const token = jwt.sign(
-                { id: user._id, role: user.role, name: user.name },
-                SECRET_KEY,
-                { expiresIn: '8h' }
+app.post('/api/machines', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        const { model, serial_number, location, franchisee_id } = req.body;
+        const result = await pool.query(
+            'INSERT INTO coffee_machines (model, serial_number, city, address, place_type, franchisee_id, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+            [model, serial_number, location.city, location.address, location.place_type, franchisee_id || req.user.id, 'active']
+        );
+        res.status(201).json({ _id: result.rows[0].id });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/machines/:id/status', authenticateToken, requireRole('admin', 'technician'), async (req, res) => {
+    try {
+        await pool.query('UPDATE coffee_machines SET status = $1 WHERE id = $2', [req.body.status, req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==========================================
+// ТЕЛЕМЕТРІЯ
+// ==========================================
+app.get('/api/machines/:id/telemetry', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM telemetry_logs WHERE machine_id = $1 ORDER BY timestamp DESC LIMIT 10', [req.params.id]);
+        res.json(result.rows.map(l => ({ 
+            ...l, 
+            _id: l.id, 
+            sensors: { water_level_percent: l.water_level_percent, coffee_beans_percent: l.coffee_beans_percent, cups_count: l.cups_count } 
+        })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/telemetry/:machine_id', async (req, res) => {
+    try {
+        const { water_level_percent, coffee_beans_percent, cups_count, has_error, error_code } = req.body;
+        await pool.query(
+            'INSERT INTO telemetry_logs (machine_id, water_level_percent, coffee_beans_percent, cups_count, has_error, error_code) VALUES ($1, $2, $3, $4, $5, $6)', 
+            [req.params.machine_id, water_level_percent, coffee_beans_percent, cups_count || 0, Boolean(has_error), error_code || null]
+        );
+        res.status(201).json({ message: "Saved" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/telemetry/errors', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM telemetry_logs WHERE has_error = true ORDER BY timestamp DESC LIMIT 50');
+        res.json(result.rows.map(l => ({ 
+            ...l, 
+            _id: l.id, 
+            sensors: { water_level_percent: l.water_level_percent, coffee_beans_percent: l.coffee_beans_percent, cups_count: l.cups_count } 
+        })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ==========================================
+// ЗАМОВЛЕННЯ
+// ==========================================
+app.get('/api/orders', authenticateToken, async (req, res) => {
+    try {
+        let query = 'SELECT * FROM orders';
+        let params = [];
+        if (req.user.role === 'franchisee') { 
+            query += ' WHERE franchisee_id = $1'; 
+            params.push(req.user.id); 
+        }
+        const result = await pool.query(query + ' ORDER BY order_date DESC', params);
+        res.json(result.rows.map(o => ({ ...o, _id: o.id })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/orders', authenticateToken, requireRole('franchisee', 'admin'), async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        if (!req.body.items || req.body.items.length === 0) return res.status(400).json({ error: "Порожнє замовлення." });
+
+        const orderRes = await client.query(
+            "INSERT INTO orders (franchisee_id, status, total_price) VALUES ($1, 'прийнято_в_обробку', $2) RETURNING id", 
+            [req.user.id, req.body.total_price]
+        );
+        const orderId = orderRes.rows[0].id;
+
+        for (let item of req.body.items) {
+            await client.query(
+                'INSERT INTO order_details (order_id, ingredient_id, quantity, price) VALUES ($1, $2, $3, $4)', 
+                [orderId, item.ingredient_id, item.quantity, item.price]
             );
-
-            res.json({ token, role: user.role, name: user.name, id: user._id });
-        });
-
-        // ==========================================
-        // 2. ДАШБОРД
-        // ==========================================
-        app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
-            const machinesCount = await db.collection('coffee_machines').countDocuments();
-            const usersCount = await db.collection('users').countDocuments();
-            const errorsCount = await db.collection('telemetry_logs').countDocuments({ has_error: true });
-            const pendingTasks = await db.collection('maintenance_tasks').countDocuments({ status: { $ne: 'виконано' } });
-            const ordersTotal = await db.collection('orders').aggregate([
-                { $group: { _id: null, total: { $sum: "$total_price" } } }
-            ]).toArray();
-
-            res.json({
-                machinesCount,
-                usersCount,
-                errorsCount,
-                pendingTasks,
-                ordersTotal: ordersTotal[0]?.total || 0
-            });
-        });
-
-        // ==========================================
-        // 3. КАВОМАШИНИ
-        // ==========================================
-        app.get('/api/machines', authenticateToken, async (req, res) => {
-            let filter = {};
-            if (req.user.role === 'franchisee') {
-                filter = { franchisee_id: new ObjectId(req.user.id) };
-            }
-            const machines = await db.collection('coffee_machines').find(filter).toArray();
-            res.json(machines);
-        });
-
-        app.get('/api/machines/:id/telemetry', authenticateToken, async (req, res) => {
-            const log = await db.collection('telemetry_logs')
-                .find({ machine_id: new ObjectId(req.params.id) })
-                .sort({ timestamp: -1 })
-                .limit(10)
-                .toArray();
-            res.json(log);
-        });
-
-        app.post('/api/telemetry/:machine_id', async (req, res) => {
-            const { water_level_percent, coffee_beans_percent, cups_count, has_error, error_code } = req.body;
-
-            if (water_level_percent === undefined || coffee_beans_percent === undefined) {
-                return res.status(400).json({ error: "Відсутні обов'язкові поля sensors." });
-            }
-
-            const log = {
-                machine_id: new ObjectId(req.params.machine_id),
-                timestamp: new Date(),
-                sensors: {
-                    water_level_percent: Number(water_level_percent),
-                    coffee_beans_percent: Number(coffee_beans_percent),
-                    cups_count: Number(cups_count || 0)
-                },
-                has_error: Boolean(has_error),
-                error_code: error_code || null
-            };
-
-            await db.collection('telemetry_logs').insertOne(log);
-
-            if (has_error || water_level_percent < 15 || coffee_beans_percent < 15 || cups_count < 10) {
-                const existing = await db.collection('maintenance_tasks').findOne({
-                    machine_id: new ObjectId(req.params.machine_id),
-                    status: { $in: ['нове', 'в_процесі'] }
-                });
-                if (!existing) {
-                    const technician = await db.collection('users').findOne({ role: 'technician' });
-                    await db.collection('maintenance_tasks').insertOne({
-                        machine_id: new ObjectId(req.params.machine_id),
-                        technician_id: technician?._id || null,
-                        task_type: 'refill',
-                        status: 'нове',
-                        assigned_at: new Date(),
-                        description: `Автоматичне завдання: вода ${water_level_percent}%, кава ${coffee_beans_percent}%, стакани ${cups_count}шт. ${error_code ? 'Помилка: ' + error_code : ''}`
-                    });
-                }
-            }
-
-            res.status(201).json({ message: "Telemetry data saved successfully", timestamp: log.timestamp });
-        });
-
-        // ==========================================
-        // 4. ТЕЛЕМЕТРІЯ: ПОМИЛКИ
-        // ==========================================
-        app.get('/api/telemetry/errors', authenticateToken, async (req, res) => {
-            const errors = await db.collection('telemetry_logs')
-                .find({ has_error: true })
-                .sort({ timestamp: -1 })
-                .limit(50)
-                .toArray();
-            res.json(errors);
-        });
-
-        // ==========================================
-        // 5. ЗАМОВЛЕННЯ ІНГРЕДІЄНТІВ
-        // ==========================================
-        app.get('/api/orders', authenticateToken, async (req, res) => {
-            let filter = {};
-            if (req.user.role === 'franchisee') {
-                filter = { franchisee_id: new ObjectId(req.user.id) };
-            }
-            const orders = await db.collection('orders').find(filter).sort({ order_date: -1 }).toArray();
-            res.json(orders);
-        });
-
-        app.post('/api/orders', authenticateToken, requireRole('franchisee', 'admin'), async (req, res) => {
-            const { items, total_price } = req.body;
-
-            if (!items || !Array.isArray(items) || items.length === 0) {
-                return res.status(400).json({ error: "Список товарів не може бути порожнім." });
-            }
-
-            const order = {
-                franchisee_id: new ObjectId(req.user.id),
-                order_date: new Date(),
-                status: 'прийнято_в_обробку',
-                total_price: Number(total_price),
-                order_details: items.map(i => ({
-                    ingredient_id: new ObjectId(i.ingredient_id),
-                    quantity: Number(i.quantity),
-                    price: Number(i.price)
-                }))
-            };
-
-            const result = await db.collection('orders').insertOne(order);
-            res.status(201).json({ order_id: result.insertedId, status: 'прийнято_в_обробку' });
-        });
-
-        app.patch('/api/orders/:id/status', authenticateToken, requireRole('admin'), async (req, res) => {
-            const { status } = req.body;
-            const allowed = ['прийнято_в_обробку', 'відправлено', 'доставлено', 'скасовано'];
-            if (!allowed.includes(status)) {
-                return res.status(400).json({ error: "Недопустимий статус." });
-            }
-            await db.collection('orders').updateOne(
-                { _id: new ObjectId(req.params.id) },
-                { $set: { status, updated_at: new Date() } }
-            );
-            res.json({ success: true, status });
-        });
-
-        // ==========================================
-        // 6. ІНГРЕДІЄНТИ (КАТАЛОГ)
-        // ==========================================
-        app.get('/api/ingredients', authenticateToken, async (req, res) => {
-            const ingredients = await db.collection('ingredients').find({}).toArray();
-            res.json(ingredients);
-        });
-
-        app.post('/api/ingredients', authenticateToken, requireRole('admin'), async (req, res) => {
-            const { name, unit, price_per_unit, stock } = req.body;
-            if (!name || !price_per_unit) {
-                return res.status(400).json({ error: "Поля name та price_per_unit є обов'язковими." });
-            }
-            const result = await db.collection('ingredients').insertOne({
-                name, unit, price_per_unit: Number(price_per_unit), stock: Number(stock || 0)
-            });
-            res.status(201).json({ ingredient_id: result.insertedId, name });
-        });
-
-        // ==========================================
-        // 7. ЗАВДАННЯ НА ОБСЛУГОВУВАННЯ (ТЕХНІКИ)
-        // ==========================================
-        app.get('/api/maintenance-tasks', authenticateToken, async (req, res) => {
-            let filter = {};
-            if (req.user.role === 'technician') {
-                filter = { technician_id: new ObjectId(req.user.id) };
-            }
-            const tasks = await db.collection('maintenance_tasks').find(filter).sort({ assigned_at: -1 }).toArray();
-
-            const enriched = await Promise.all(tasks.map(async (task) => {
-                const machine = await db.collection('coffee_machines').findOne(
-                    { _id: task.machine_id },
-                    { projection: { model: 1, location: 1, serial_number: 1 } }
-                );
-                return { ...task, machine };
-            }));
-
-            res.json(enriched);
-        });
-
-        app.post('/api/maintenance-tasks', authenticateToken, requireRole('admin'), async (req, res) => {
-            const { machine_id, technician_id, task_type, description } = req.body;
-            const task = {
-                machine_id: new ObjectId(machine_id),
-                technician_id: new ObjectId(technician_id),
-                task_type: task_type || 'refill',
-                status: 'нове',
-                assigned_at: new Date(),
-                description: description || ''
-            };
-            const result = await db.collection('maintenance_tasks').insertOne(task);
-            res.status(201).json({ task_id: result.insertedId, status: 'нове' });
-        });
-
-        app.patch('/api/maintenance-tasks/:id', authenticateToken, async (req, res) => {
-            const { status } = req.body;
-            const allowed = ['нове', 'в_процесі', 'виконано', 'скасовано'];
-            if (!allowed.includes(status)) {
-                return res.status(400).json({ error: "Недопустимий статус завдання." });
-            }
-            const update = { status, updated_at: new Date() };
-            if (status === 'виконано') update.completed_at = new Date();
-
-            await db.collection('maintenance_tasks').updateOne(
-                { _id: new ObjectId(req.params.id) },
-                { $set: update }
-            );
-            res.json({ success: true, task_id: req.params.id, status, updated_at: update.updated_at });
-        });
-
-        // ==========================================
-        // 8. РОЯЛТІ (ТІЛЬКИ АДМІН)
-        // ==========================================
-        app.get('/api/royalty', authenticateToken, requireRole('admin'), async (req, res) => {
-            const franchisees = await db.collection('users').find({ role: 'franchisee' }).toArray();
-
-            const royaltyReport = await Promise.all(franchisees.map(async (f) => {
-                const orders = await db.collection('orders').find({ franchisee_id: f._id }).toArray();
-                const totalRevenue = orders.reduce((sum, o) => sum + (o.total_price || 0), 0);
-                const royaltyAmount = totalRevenue * 0.08;
-
-                const paidPayments = await db.collection('payments').find({
-                    franchisee_id: f._id,
-                    payment_type: 'роялті_за_місяць',
-                    status: 'оплачено'
-                }).toArray();
-                const totalPaid = paidPayments.reduce((sum, p) => sum + p.amount, 0);
-
-                return {
-                    franchisee_id: f._id,
-                    name: f.name,
-                    email: f.email,
-                    ordersCount: orders.length,
-                    totalRevenue: totalRevenue,
-                    royaltyAmount: parseFloat(royaltyAmount.toFixed(2)),
-                    totalPaid,
-                    balance: parseFloat((royaltyAmount - totalPaid).toFixed(2))
-                };
-            }));
-
-            res.json(royaltyReport);
-        });
-
-        // ==========================================
-        // 9. КОРИСТУВАЧІ (ТІЛЬКИ АДМІН)
-        // ==========================================
-        app.get('/api/users', authenticateToken, requireRole('admin'), async (req, res) => {
-            const users = await db.collection('users').find({}, { projection: { password: 0 } }).toArray();
-            res.json(users);
-        });
-
-        app.post('/api/users', authenticateToken, requireRole('admin'), async (req, res) => {
-            const { name, email, phone, role } = req.body;
-            const allowed_roles = ['admin', 'franchisee', 'technician'];
-            if (!allowed_roles.includes(role)) {
-                return res.status(400).json({ error: "Недопустима роль." });
-            }
-            const exists = await db.collection('users').findOne({ email });
-            if (exists) return res.status(409).json({ error: "Користувач з таким email вже існує." });
-
-            const result = await db.collection('users').insertOne({
-                name, email, phone, role, created_at: new Date()
-            });
-            res.status(201).json({ user_id: result.insertedId, name, role });
-        });
-
-        // ==========================================
-        // 10. ПЛАТЕЖІ (АДМІН)
-        // ==========================================
-        app.get('/api/payments', authenticateToken, requireRole('admin'), async (req, res) => {
-            const payments = await db.collection('payments').find({}).sort({ payment_date: -1 }).toArray();
-            res.json(payments);
-        });
-
-        app.listen(PORT, () => console.log(`🚀 CoffeeNet CRM: http://localhost:${PORT}`));
-
-    } catch (err) {
-        console.error("❌ Помилка підключення:", err);
-        process.exit(1);
+        }
+        await client.query('COMMIT');
+        res.status(201).json({ order_id: orderId, status: 'прийнято_в_обробку' });
+    } catch (err) { 
+        await client.query('ROLLBACK'); 
+        res.status(500).json({ error: err.message }); 
+    } finally { 
+        client.release(); 
     }
-}
+});
 
-startServer();
+app.patch('/api/orders/:id/status', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        await pool.query('UPDATE orders SET status = $1, updated_at = current_timestamp WHERE id = $2', [req.body.status, req.params.id]);
+        res.json({ success: true, status: req.body.status });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-module.exports = { app };
+// ==========================================
+// ІНГРЕДІЄНТИ ТА ІНШЕ
+// ==========================================
+app.get('/api/ingredients', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM ingredients');
+        res.json(result.rows.map(i => ({ ...i, _id: i.id })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/maintenance-tasks', authenticateToken, async (req, res) => {
+    try {
+        let query = 'SELECT t.*, m.model, m.serial_number, m.city, m.address FROM maintenance_tasks t LEFT JOIN coffee_machines m ON t.machine_id = m.id';
+        let params = [];
+        if (req.user.role === 'technician') { 
+            query += ' WHERE t.technician_id = $1'; 
+            params.push(req.user.id); 
+        }
+        const result = await pool.query(query + ' ORDER BY t.assigned_at DESC', params);
+        res.json(result.rows.map(r => ({ 
+            ...r, 
+            _id: r.id, 
+            machine: { model: r.model, serial_number: r.serial_number, location: { city: r.city, address: r.address } } 
+        })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/users', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, name, email, phone, role, created_at FROM users');
+        res.json(result.rows.map(u => ({ ...u, _id: u.id })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/royalty', authenticateToken, requireRole('admin'), async (req, res) => {
+    try {
+        const result = await pool.query("SELECT u.id as franchisee_id, u.name, u.email, COUNT(o.id) as orders_count, COALESCE(SUM(o.total_price), 0) as total_revenue FROM users u LEFT JOIN orders o ON u.id = o.franchisee_id WHERE u.role = 'franchisee' GROUP BY u.id");
+        res.json(result.rows.map(r => {
+            const totalRevenue = parseFloat(r.total_revenue);
+            const royaltyAmount = totalRevenue * 0.08;
+            return { 
+                franchisee_id: r.franchisee_id, name: r.name, email: r.email, 
+                ordersCount: parseInt(r.orders_count), totalRevenue, 
+                royaltyAmount: parseFloat(royaltyAmount.toFixed(2)), 
+                balance: parseFloat(royaltyAmount.toFixed(2)) 
+            };
+        }));
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.listen(PORT, async () => {
+    try { 
+        await pool.query('SELECT 1'); 
+        console.log(`🚀 PostgreSQL Сервер: http://localhost:${PORT}`); 
+    } catch(e) { 
+        console.error('DB error', e); 
+    }
+});
+
+module.exports = { app, pool };
